@@ -8,3 +8,7 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+## Application rules
+- Keep LotPulse dashboard interactions in client-side React state; report, prediction and payment data are explicitly simulated, not live integrations.
+- Define LotPulse visual roles and control variants in the global design system; reusable radar illustrations belong in dedicated components.
