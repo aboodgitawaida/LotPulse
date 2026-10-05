@@ -40,6 +40,8 @@ function Index() {
   const confirmReport = () => { setReports((previous) => previous.includes(selected) ? previous : [...previous, selected]); setModal("reported"); };
   const confirmPayment = () => { setPayments((previous) => [...previous, selected]); setModal("paid"); };
 
+  if (!lot) return null;
+
   function Leaderboard() {
     return <section className="scouts" aria-label="Weekly top scouts">
       <div className="scouts-header"><div className="scouts-title"><Trophy /> WEEKLY TOP SCOUTS</div><p>Campus clout. Earned, not given.</p></div>
