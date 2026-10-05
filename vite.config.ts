@@ -7,6 +7,22 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  vite: {
+    optimizeDeps: {
+      // Prebundle the dashboard dependencies with React before the first page
+      // loads. Reject stale optimizer requests instead of mixing React runtimes
+      // across a dependency refresh (which leaves the hook dispatcher null).
+      include: [
+        "@radix-ui/react-dialog",
+        "@radix-ui/react-slot",
+        "class-variance-authority",
+        "clsx",
+        "lucide-react",
+        "tailwind-merge",
+      ],
+      ignoreOutdatedRequests: false,
+    },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
