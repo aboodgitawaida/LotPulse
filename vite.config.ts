@@ -28,12 +28,4 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  vite: {
-    resolve: {
-      dedupe: ["react", "react-dom"],
-    },
-    optimizeDeps: {
-      include: ["react", "react-dom", "react-dom/client", "react/jsx-runtime"],
-    },
-  },
 });
