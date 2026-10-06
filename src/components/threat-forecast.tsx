@@ -51,7 +51,7 @@ export function ThreatForecast({ lot }: { lot: LotId }) {
         <path d={area} className="forecast-area" />
         <path d={line} className="forecast-line" />
         {showNow && <line x1={hourX(nowHour)} x2={hourX(nowHour)} y1={padTop} y2={height - padBottom} className="forecast-now" />}
-        {showNow && <circle cx={hourX(nowHour)} cy={y(curve[Math.min(HOURS - 1, Math.max(0, Math.round(nowHour - START_HOUR)))])} r="3.5" className="forecast-now-dot" />}
+        {showNow && <circle cx={hourX(nowHour)} cy={y(curve[Math.min(HOURS - 1, Math.max(0, Math.round(nowHour - START_HOUR)))] ?? 0)} r="3.5" className="forecast-now-dot" />}
         {[6, 10, 14, 18, 22].map((h) => <text key={h} x={hourX(h)} y={height - 8} className="forecast-tick" textAnchor="middle">{hourLabel(h)}</text>)}
       </svg>
       <div className="forecast-legend">
