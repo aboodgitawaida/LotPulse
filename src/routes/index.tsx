@@ -3,7 +3,9 @@ import { useState } from "react";
 import { Activity, ArrowRight, ArrowUpRight, BadgeCheck, BellRing, Check, CircleParking, Clock3, Cpu, CreditCard, Crosshair, Radio, Radar, ShieldCheck, Sparkles, Trophy, Users, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { CampusRadar } from "@/components/campus-radar";
+import { CampusMap } from "@/components/campus-map";
+import { ThreatForecast } from "@/components/threat-forecast";
+import type { LotId } from "@/lib/campus-lots";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -24,6 +26,7 @@ const lots = [
   { id: "Inner Circle", name: "Central campus", threat: 74, last: "2h", prediction: "Mon 12PM–2PM", tone: "high" },
 ];
 const scouts = [ { name: "UofT_Driver", initials: "UD", score: 450 }, { name: "parking_ninja", initials: "PN", score: 380 }, { name: "UTM_scout", initials: "US", score: 325 } ];
+const lotTones = Object.fromEntries(lots.map((item) => [item.id, item.tone]));
 type Modal = "report" | "reported" | "payment" | "paid" | "map" | null;
 
 function Index() {
@@ -68,10 +71,11 @@ function Index() {
             </div>
             <div className="metric-footer"><span><Users size={12} /> Student signals + predictive intelligence</span><span><Clock3 size={12} /> {reported ? "Updated just now" : "Updated 30s ago"}</span></div>
           </section>
+          <ThreatForecast lot={selected as LotId} />
           <div className="report-section"><Button variant="spotted" onClick={() => setModal("report")} disabled={reported}><Crosshair className="report-icon" /><span className="report-button-text"><strong>{reported ? "CAMPUS ALERTED!" : `SPOTTED (${selected === "Inner Circle" ? "IC" : selected})!`}</strong><small>{reported ? "Your fellow students thank you." : "I spotted an enforcer."}</small></span><ArrowRight className="report-arrow" /></Button><div className="report-caption"><ShieldCheck size={12} /><span>Look out for your campus.</span><span className="points">+25 clout per report</span></div></div>
           <section aria-label="Other campus lots"><div className="section-heading"><h2>Elsewhere on campus</h2><span>AI THREAT LEVEL</span></div><div className="lots-list">{lots.filter((item) => item.id !== selected).map((item) => <Button variant="lot" key={item.id} onClick={() => selectLot(item.id)} aria-label={`View ${item.id}, ${item.threat}% threat`}><span className="lot-item-top">{item.id}<ArrowUpRight /></span><span className={`lot-threat tone-${item.tone}`}>{item.threat}% <small>threat</small></span><span className={`threat-bar tone-${item.tone}`}>{Array.from({ length: 10 }, (_, i) => <i className={i >= Math.round(item.threat / 10) ? "empty" : ""} key={i} />)}</span></Button>)}</div></section>
         </div>
-        <aside className="sidebar"><CampusRadar selected={selected} onSelect={selectLot} onExpand={() => setModal("map")} /><Leaderboard /><div className="community-note"><ShieldCheck /><p>Student-powered. Community-first.<br />Every signal makes campus a little smarter.</p></div></aside>
+        <aside className="sidebar"><CampusMap selected={selected} onSelect={selectLot} onExpand={() => setModal("map")} tones={lotTones} /><Leaderboard /><div className="community-note"><ShieldCheck /><p>Student-powered. Community-first.<br />Every signal makes campus a little smarter.</p></div></aside>
       </div> : <div className="clout-page"><div className="clout-score"><div><div className="metric-label"><Zap size={14} /> YOUR WEEKLY CLOUT</div><strong>{points} <span className="text-lg">pts</span></strong><p>Rookie scout · Weekly rank #8</p></div><Trophy size={42} className="tone-medium" /></div><Leaderboard /><div className="community-note"><BadgeCheck /><p>{reports.length} {reports.length === 1 ? "report" : "reports"} this session · +25 points for each new lot report.</p></div><Button variant="utility" className="mt-6" onClick={() => setTab("radar")}><Radar /> Back to campus radar <ArrowRight /></Button></div>}
       <footer className="page-footer"><span className="footer-brand"><Radar size={12} /> LOTPULSE <span>· FOR STUDENTS, BY STUDENTS.</span></span><span>Simulated signals. Not a guarantee. Always park responsibly.</span></footer>
     </main>
@@ -81,7 +85,7 @@ function Index() {
       {modal === "reported" && <><div className="modal-icon success-icon"><Check size={28} /></div><DialogTitle>Signal sent. Campus covered.</DialogTitle><DialogDescription className="modal-body">Your simulated {selected} report is on the radar. That’s +25 clout for looking out for your fellow students.</DialogDescription><div className="modal-summary"><span>Your clout</span><strong>{points} pts</strong></div><Button onClick={() => setModal(null)}>Back to radar <ArrowRight /></Button></>}
       {modal === "payment" && <><div className="modal-icon"><CreditCard size={26} /></div><DialogTitle>A little extra time in {selected}.</DialogTitle><DialogDescription className="modal-body">Preview a 30-minute parking payment. This demo won’t charge you or issue a valid parking permit.</DialogDescription><div className="modal-summary"><span>Parking session</span><strong>{selected} · 30 minutes</strong></div><Button onClick={confirmPayment}><CreditCard /> Simulate payment <ArrowUpRight /></Button><p className="demo-notice">No payment provider connected · No charge</p></>}
       {modal === "paid" && <><div className="modal-icon success-icon"><Check size={28} /></div><DialogTitle>Demo session activated.</DialogTitle><DialogDescription className="modal-body">Your simulated 30-minute session for {selected} is active in this preview only. For real parking, use UTM’s official payment service.</DialogDescription><div className="modal-summary"><span>Demo duration</span><strong>30 minutes</strong></div><Button onClick={() => setModal(null)}>Back to radar <ArrowRight /></Button></>}
-      {modal === "map" && <><DialogTitle>Campus radar</DialogTitle><DialogDescription>UTM lots · Illustrative campus schematic</DialogDescription><CampusRadar selected={selected} onSelect={selectLot} expanded /></>}
+      {modal === "map" && <><DialogTitle>Campus radar</DialogTitle><DialogDescription>UTM lots · Live campus map</DialogDescription><CampusMap selected={selected} onSelect={selectLot} tones={lotTones} expanded /></>}
     </DialogContent></Dialog>
   </div>;
 }
