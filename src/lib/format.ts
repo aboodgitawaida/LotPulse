@@ -1,4 +1,4 @@
-import type { PeakWindow } from "./lots";
+import type { Lot, PeakWindow } from "./lots";
 
 function hourParts(hour: number) {
   const normalized = ((hour % 24) + 24) % 24;
@@ -41,4 +41,18 @@ export function timeAgo(timestamp: number, now: number): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return days === 1 ? "yesterday" : `${days}d ago`;
+}
+
+function dollars(amount: number): string {
+  return Number.isInteger(amount) ? `$${amount}` : `$${amount.toFixed(2)}`;
+}
+
+/** Posted rate as "$2.75 / 30 min · $15 daily max". */
+export function formatRate({ halfHour, dailyMax }: Lot["rate"]): string {
+  const base = `$${halfHour.toFixed(2)} / 30 min`;
+  return dailyMax === undefined ? base : `${base} · ${dollars(dailyMax)} daily max`;
+}
+
+export function formatPrice(amount: number): string {
+  return `$${amount.toFixed(2)}`;
 }

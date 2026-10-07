@@ -36,8 +36,10 @@ export interface SeedSighting {
 export const SEED_SIGHTINGS: readonly SeedSighting[] = [
   { lot: "IC", scout: "parking_ninja", minutesAgo: 18 },
   { lot: "P4", scout: "UTM_scout", minutesAgo: 72 },
+  { lot: "CCT", scout: "ccit_crawler", minutesAgo: 110 },
   { lot: "P9", scout: "UofT_Driver", minutesAgo: 180 },
   { lot: "P4", scout: "north_lot_nate", minutesAgo: 300 },
+  { lot: "P11", scout: "deerfield_dash", minutesAgo: 260 },
   { lot: "P8", scout: "maple_parker", minutesAgo: 420 },
 ];
 

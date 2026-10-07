@@ -1,7 +1,7 @@
 import { CircleParking, Clock3, CreditCard, Radio, Sparkles, TimerReset } from "lucide-react";
 
 import { ThreatGauge } from "@/components/threat-gauge";
-import { formatDuration, formatWindow, timeAgo } from "@/lib/format";
+import { formatDuration, formatRate, formatWindow, timeAgo } from "@/lib/format";
 import { TONE_LABEL, patrolOutlook, type Lot } from "@/lib/lots";
 import type { LotStatus } from "@/lib/store";
 
@@ -60,8 +60,14 @@ export function FocusLot({ lot, status, now, onPay }: FocusLotProps) {
         </span>
         <div>
           <h2 id="focus-lot-title">{lot.name}</h2>
-          <p>{lot.area} · UTM</p>
+          <p>{lot.area}</p>
         </div>
+        <ul className="lot-facts" aria-label={`${lot.name} details`}>
+          <li>{formatRate(lot.rate)}</li>
+          {lot.notes.map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
       </header>
 
       <div className="focus-lot-metrics">

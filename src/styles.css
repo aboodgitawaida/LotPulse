@@ -452,8 +452,8 @@
    ------------------------------------------------------------------------- */
 .lot-switcher {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
 }
 .lot-chip {
   display: grid;
@@ -552,6 +552,23 @@
 .focus-lot-icon svg {
   width: 22px;
   height: 22px;
+}
+.lot-facts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+.lot-facts li {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 .focus-lot-header h2 {
   font-family: var(--font-display);
@@ -1620,6 +1637,9 @@
    Responsive
    ------------------------------------------------------------------------- */
 @media (max-width: 1080px) {
+  .lot-switcher {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
   .dashboard-grid {
     grid-template-columns: minmax(0, 1fr) 320px;
   }
@@ -1720,7 +1740,30 @@
   }
 
   .focus-lot-header {
+    flex-wrap: wrap;
     padding: 16px 18px;
+  }
+  .lot-facts {
+    justify-content: flex-start;
+    margin-left: 0;
+    width: 100%;
+  }
+  .lot-facts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-left: auto;
+  }
+  .lot-facts li {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--muted-foreground);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
   }
   .focus-lot-header h2 {
     font-size: 21px;

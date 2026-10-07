@@ -94,6 +94,8 @@ export function CampusMap({
           center: [CAMPUS_CENTER.lat, CAMPUS_CENTER.lng],
           zoom: 16,
           zoomControl: false,
+          // Fractional zoom lets fitBounds spread the pins as far as the box allows.
+          zoomSnap: 0.25,
           attributionControl: true,
           scrollWheelZoom: expanded,
         });
@@ -114,8 +116,10 @@ export function CampusMap({
         }
 
         map.fitBounds(L.latLngBounds(LOTS.map((lot) => [lot.position.lat, lot.position.lng])), {
-          padding: [48, 48],
-          maxZoom: 17,
+          // Leave room for the header chip (top) and the style toggle and zoom (bottom).
+          paddingTopLeft: [32, expanded ? 32 : 60],
+          paddingBottomRight: [56, 60],
+          maxZoom: 17.5,
         });
 
         // Dialogs and responsive layouts resize the container after mount.

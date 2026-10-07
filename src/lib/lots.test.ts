@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDuration, formatHour, formatWindow, timeAgo } from "./format";
+import { formatDuration, formatHour, formatRate, formatWindow, timeAgo } from "./format";
 import { LOTS, dailyForecast, getLot, patrolOutlook, peakWindow, threatAt, toneFor } from "./lots";
 
 // 2026-10-05 is a Monday, 2026-10-10 a Saturday.
@@ -91,6 +91,11 @@ describe("format helpers", () => {
     expect(formatDuration(45)).toBe("45m");
     expect(formatDuration(120)).toBe("2h");
     expect(formatDuration(135)).toBe("2h 15m");
+  });
+
+  it("formats posted rates", () => {
+    expect(formatRate(getLot("P9").rate)).toBe("$3.00 / 30 min · $18 daily max");
+    expect(formatRate(getLot("IC").rate)).toBe("$2.75 / 30 min");
   });
 
   it("formats relative times", () => {
