@@ -80,7 +80,7 @@ export function CampusMap({ selected, onSelect, onExpand, expanded = false, tone
             position: lotPositions[id],
             title: id,
             label: { text: id === "Inner Circle" ? "IC" : id, color: "#0b0e14", fontSize: "9px", fontWeight: "700" },
-            icon: pinIcon(google, TONE_COLORS[tones[id] ?? ""] ?? TONE_COLORS["low"], 1.1),
+            icon: pinIcon(google, TONE_COLORS[tones[id] ?? ""] ?? "#34d399", 1.1),
           });
           marker.addListener("click", () => onSelect(id));
           markersRef.current[id] = marker;
@@ -97,7 +97,7 @@ export function CampusMap({ selected, onSelect, onExpand, expanded = false, tone
     const google = (window as unknown as Record<string, any>)["google"];
     Object.entries(markersRef.current).forEach(([id, marker]) => {
       const isSelected = id === selected;
-      marker.setIcon(pinIcon(google, isSelected ? SELECT_COLOR : TONE_COLORS[tones[id] ?? ""] ?? TONE_COLORS["low"], isSelected ? 1.5 : 1.1));
+      marker.setIcon(pinIcon(google, isSelected ? SELECT_COLOR : TONE_COLORS[tones[id] ?? ""] ?? "#34d399", isSelected ? 1.5 : 1.1));
       marker.setZIndex(isSelected ? 10 : 1);
     });
     const position = lotPositions[selected as LotId];
