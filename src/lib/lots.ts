@@ -78,7 +78,7 @@ export const LOTS: readonly Lot[] = [
     name: "Inner Circle",
     short: "IC",
     area: "Inner Circle Road",
-    position: { lat: 43.5476, lng: -79.6606 }, // approximate, awaiting real location
+    position: { lat: 43.54719, lng: -79.66226 }, // dropped pin
     rate: { halfHour: 2.75 },
     notes: ["90-minute limit"],
     curve: [4, 4, 4, 4, 4, 6, 10, 9, 9, 11, 16, 25, 66, 76, 78, 70, 55, 42, 30, 21, 14, 11, 10, 7],
