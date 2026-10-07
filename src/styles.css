@@ -1041,7 +1041,7 @@
   position: absolute;
   z-index: 500;
   left: 12px;
-  bottom: 12px;
+  bottom: 54px;
   max-width: calc(100% - 80px);
   padding: 6px 10px;
   border-radius: 8px;
@@ -1078,6 +1078,36 @@
 }
 .campus-map .leaflet-control-attribution a {
   color: var(--muted-foreground);
+}
+
+.campus-map .tiles-dark {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.88) saturate(0.55);
+}
+.basemap-toggle {
+  position: absolute;
+  z-index: 500;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: color-mix(in oklch, var(--background) 80%, transparent);
+  backdrop-filter: blur(8px);
+}
+.basemap-toggle button {
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-weight: 600;
+}
+.basemap-toggle button[aria-pressed="true"] {
+  background: var(--surface-3);
+  color: var(--foreground);
 }
 
 .map-pin-wrapper {

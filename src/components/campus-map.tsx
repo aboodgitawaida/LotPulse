@@ -1,13 +1,42 @@
 import { useEffect, useRef, useState } from "react";
-import type { DivIcon, Map as LeafletMap, Marker } from "leaflet";
+import type { DivIcon, Map as LeafletMap, Marker, TileLayer } from "leaflet";
 import { Maximize2, Radar } from "lucide-react";
 
 import { CAMPUS_CENTER, LOTS, type LotId, type Tone } from "@/lib/lots";
 import { cn } from "@/lib/utils";
 
-const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+// Both basemaps work without an API key. The street map is standard
+// OpenStreetMap, darkened with a CSS filter (.tiles-dark) to fit the theme.
+type Basemap = "map" | "satellite";
+
+const BASEMAPS: Record<
+  Basemap,
+  { label: string; url: string; attribution: string; dark: boolean }
+> = {
+  map: {
+    label: "Map",
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    dark: true,
+  },
+  satellite: {
+    label: "Satellite",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics",
+    dark: false,
+  },
+};
+
+const BASEMAP_KEY = "lotpulse:basemap";
+
+function loadBasemap(): Basemap {
+  try {
+    return window.localStorage.getItem(BASEMAP_KEY) === "satellite" ? "satellite" : "map";
+  } catch {
+    return "map";
+  }
+}
 
 type Leaflet = typeof import("leaflet");
 
@@ -39,7 +68,9 @@ export function CampusMap({
   const leafletRef = useRef<Leaflet | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markersRef = useRef<Partial<Record<LotId, Marker>>>({});
+  const tileLayerRef = useRef<TileLayer | null>(null);
   const onSelectRef = useRef(onSelect);
+  const [basemap, setBasemap] = useState<Basemap>(loadBasemap);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [tilesFailed, setTilesFailed] = useState(false);
 
@@ -68,15 +99,6 @@ export function CampusMap({
         });
         L.control.zoom({ position: "bottomright" }).addTo(map);
         map.attributionControl.setPrefix(false);
-
-        let tileErrors = 0;
-        L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION, maxZoom: 19, subdomains: "abcd" })
-          .on("tileerror", () => {
-            tileErrors += 1;
-            if (tileErrors >= 4) setTilesFailed(true);
-          })
-          .on("tileload", () => setTilesFailed(false))
-          .addTo(map);
 
         for (const lot of LOTS) {
           const marker = L.marker([lot.position.lat, lot.position.lng], {
@@ -112,9 +134,37 @@ export function CampusMap({
       resizeObserver?.disconnect();
       mapRef.current?.remove();
       mapRef.current = null;
+      tileLayerRef.current = null;
       markersRef.current = {};
     };
   }, [expanded]);
+
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapRef.current;
+    if (status !== "ready" || !L || !map) return;
+    const config = BASEMAPS[basemap];
+    let tileErrors = 0;
+    setTilesFailed(false);
+    const layer = L.tileLayer(config.url, {
+      attribution: config.attribution,
+      maxZoom: 19,
+      className: config.dark ? "tiles-dark" : "",
+    })
+      .on("tileerror", () => {
+        tileErrors += 1;
+        if (tileErrors >= 4) setTilesFailed(true);
+      })
+      .on("tileload", () => setTilesFailed(false))
+      .addTo(map);
+    tileLayerRef.current?.remove();
+    tileLayerRef.current = layer;
+    try {
+      window.localStorage.setItem(BASEMAP_KEY, basemap);
+    } catch {
+      // Preference just won't persist.
+    }
+  }, [basemap, status]);
 
   useEffect(() => {
     const L = leafletRef.current;
@@ -152,6 +202,20 @@ export function CampusMap({
         </div>
       )}
       <div ref={containerRef} className="campus-map-canvas" />
+      {status === "ready" && (
+        <div className="basemap-toggle" role="group" aria-label="Map style">
+          {(Object.keys(BASEMAPS) as Basemap[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={basemap === key}
+              onClick={() => setBasemap(key)}
+            >
+              {BASEMAPS[key].label}
+            </button>
+          ))}
+        </div>
+      )}
       {status !== "ready" && (
         <div className="campus-map-overlay" role="status">
           <Radar className="campus-map-overlay-icon" aria-hidden />
