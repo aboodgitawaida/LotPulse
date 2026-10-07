@@ -4,6 +4,7 @@ import { BellRing, CreditCard, Crosshair, TimerReset } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { POINTS_PER_REPORT, SESSION_MINUTES } from "@/lib/community";
+import { formatPrice, formatRate } from "@/lib/format";
 import type { Lot } from "@/lib/lots";
 
 interface ConfirmDialogProps {
@@ -88,11 +89,13 @@ export function PaymentDialog({
       description="Just-in-time payment preview for when a patrol is close. For real parking, use UTM's official payment service."
       summary={[
         { label: "Lot", value: lot.name },
+        { label: "Posted rate", value: formatRate(lot.rate) },
+        { label: "Demo charge", value: `${formatPrice(lot.rate.halfHour)} (not charged)` },
         { label: extending ? "Adds" : "Duration", value: `${SESSION_MINUTES} minutes` },
       ]}
       confirmLabel={extending ? "Extend session" : "Start session"}
       confirmIcon={<CreditCard />}
-      notice="Demo only. Nothing is charged and no permit is issued."
+      notice="Demo only. Nothing is charged and no permit is issued. Rates change, so check posted signs."
     />
   );
 }

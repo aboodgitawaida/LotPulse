@@ -32,7 +32,7 @@ bun run dev        # http://localhost:3000
 | `bun run format` | Format everything with Prettier      |
 
 No environment variables or API keys are needed. The campus map uses
-[Leaflet](https://leafletjs.com) with free OpenStreetMap / CARTO tiles.
+[Leaflet](https://leafletjs.com) with free OpenStreetMap tiles and Esri satellite imagery.
 
 ## Deploying to Vercel
 

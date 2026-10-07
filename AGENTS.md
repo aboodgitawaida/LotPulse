@@ -11,7 +11,7 @@
 - All dashboard data (threat levels, forecasts, scout reports, payments, leaderboard) is **simulated** on the client. Never present it as a live integration, and keep the "simulated" disclaimers visible.
 - `src/lib/lots.ts` is the single source of truth for lot metadata, positions and forecast curves. The map, dashboard and forecast all read from it.
 - Visual tokens (colors, threat tones, radii) live in `src/styles.css`. Reusable UI belongs in `src/components/`.
-- The campus map uses Leaflet with CARTO dark tiles (no API key). It only renders on the client.
+- The campus map uses Leaflet with OpenStreetMap tiles (darkened via CSS) and an Esri satellite option; neither needs an API key. It only renders on the client.
 
 ## Checks
 
