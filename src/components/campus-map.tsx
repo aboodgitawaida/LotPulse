@@ -90,7 +90,7 @@ export function CampusMap({ selected, onSelect, onExpand, expanded = false, tone
         setStatus("ready");
       })
       .catch(() => { if (!cancelled) setStatus("error"); });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; window.removeEventListener("lotpulse-maps-auth-failure", onAuthFailure); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
