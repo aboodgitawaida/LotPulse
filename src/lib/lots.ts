@@ -31,7 +31,7 @@ export const LOTS: readonly Lot[] = [
     name: "Lot P4",
     short: "P4",
     area: "South campus",
-    position: { lat: 43.5448, lng: -79.6587 },
+    position: { lat: 43.54706, lng: -79.65956 }, // Google Plus Code G8WR+R5
     curve: [3, 3, 3, 3, 3, 5, 8, 7, 7, 8, 11, 17, 26, 36, 55, 62, 64, 58, 45, 33, 24, 15, 10, 6],
   },
   {
