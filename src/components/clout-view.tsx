@@ -3,11 +3,11 @@ import { Award, Lock, RotateCcw, ShieldCheck, Zap } from "lucide-react";
 import { Leaderboard } from "@/components/leaderboard";
 import {
   BADGES,
-  OTHER_SCOUTS,
   POINTS_PER_REPORT,
   REPORT_COOLDOWN_MINUTES,
   tierFor,
   type BadgeId,
+  type LeaderboardRow,
 } from "@/lib/community";
 import { LOTS } from "@/lib/lots";
 import type { Payment, Report } from "@/lib/store";
@@ -18,10 +18,21 @@ interface CloutViewProps {
   reports: Report[];
   payments: Payment[];
   badges: Set<BadgeId>;
-  onReset: () => void;
+  leaderboard: LeaderboardRow[];
+  /** Demo mode only: wipe simulated progress. */
+  onReset?: () => void;
 }
 
-export function CloutView({ points, rank, reports, payments, badges, onReset }: CloutViewProps) {
+export function CloutView({
+  points,
+  rank,
+  reports,
+  payments,
+  badges,
+  leaderboard,
+  onReset,
+}: CloutViewProps) {
+  const scouts = Math.max(leaderboard.length, rank);
   const { current, next } = tierFor(points);
   const progress = next ? ((points - current.min) / (next.min - current.min)) * 100 : 100;
   const lotsCovered = new Set(reports.map((r) => r.lot)).size;
@@ -38,7 +49,8 @@ export function CloutView({ points, rank, reports, payments, badges, onReset }: 
             <small> pts</small>
           </p>
           <p className="clout-tier">
-            {current.name} · <strong>#{rank}</strong> of {OTHER_SCOUTS.length + 1} scouts
+            {current.name} · <strong>#{rank}</strong> of {scouts}{" "}
+            {scouts === 1 ? "scout" : "scouts"}
           </p>
         </div>
         <div className="tier-progress">
@@ -101,7 +113,7 @@ export function CloutView({ points, rank, reports, payments, badges, onReset }: 
         </ul>
       </section>
 
-      <Leaderboard points={points} limit={OTHER_SCOUTS.length + 1} />
+      <Leaderboard rows={leaderboard} limit={50} />
 
       <section className="card how-it-works" aria-labelledby="how-title">
         <h2 id="how-title" className="eyebrow">
@@ -112,9 +124,11 @@ export function CloutView({ points, rank, reports, payments, badges, onReset }: 
           <li>You can report each lot once every {REPORT_COOLDOWN_MINUTES} minutes, so no spam.</li>
           <li>The leaderboard resets every Monday. Climb the tiers to earn your badges.</li>
         </ul>
-        <button type="button" className="text-button" onClick={onReset}>
-          <RotateCcw aria-hidden /> Reset demo progress
-        </button>
+        {onReset && (
+          <button type="button" className="text-button" onClick={onReset}>
+            <RotateCcw aria-hidden /> Reset demo progress
+          </button>
+        )}
       </section>
     </div>
   );

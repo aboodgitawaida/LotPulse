@@ -8,7 +8,9 @@
 
 ## Application rules
 
-- All dashboard data (threat levels, forecasts, scout reports, payments, leaderboard) is **simulated** on the client. Never present it as a live integration, and keep the "simulated" disclaimers visible.
+- **Sightings, clout and the leaderboard are live** when Supabase credentials are set (`src/lib/supabase.ts`, `src/lib/live.ts`), and simulated in demo mode when they aren't. Forecasts, threat curves and JIT payments are always simulated; keep those disclaimers visible.
+- Database changes go in a new file under `supabase/migrations/` (never edit an applied one). Security lives in the database: RLS policies plus the `guard_sighting` trigger (server timestamps, 15-minute per-lot cooldown, 6 per hour). `src/test/database.test.ts` runs every migration in PGlite, so extend it with each change.
+- Reports only ever contain the lot, the time and a self-chosen scout name. Don't add photos, free text or anything that identifies officers or students.
 - `src/lib/lots.ts` is the single source of truth for lot metadata, positions and forecast curves. The map, dashboard and forecast all read from it.
 - Visual tokens (colors, threat tones, radii) live in `src/styles.css`. Reusable UI belongs in `src/components/`.
 - The campus map uses Leaflet with OpenStreetMap tiles (darkened via CSS) and an Esri satellite option; neither needs an API key. It only renders on the client.

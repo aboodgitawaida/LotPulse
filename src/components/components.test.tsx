@@ -7,10 +7,17 @@ import { FocusLot } from "@/components/focus-lot";
 import { Leaderboard } from "@/components/leaderboard";
 import { LotSwitcher } from "@/components/lot-switcher";
 import { ReportButton } from "@/components/report-button";
+import { OTHER_SCOUTS, rankLeaderboard } from "@/lib/community";
 import { getLot, type LotId } from "@/lib/lots";
 import type { LotStatus } from "@/lib/store";
 
 const now = new Date("2026-10-05T12:20:00");
+
+const board = (points: number) =>
+  rankLeaderboard(
+    OTHER_SCOUTS.map((scout) => ({ ...scout, you: false })),
+    { name: "You", points },
+  );
 
 const status = (overrides: Partial<LotStatus> = {}): LotStatus => ({
   threat: 50,
@@ -73,7 +80,7 @@ describe("ReportButton", () => {
 
 describe("Leaderboard", () => {
   it("always includes you, ranked by points", () => {
-    render(<Leaderboard points={300} limit={3} />);
+    render(<Leaderboard rows={board(300)} limit={3} />);
     const you = screen.getByText("You").closest("li");
     expect(you).toHaveAttribute("aria-current", "true");
     expect(you).toHaveTextContent("4");
@@ -89,6 +96,7 @@ describe("CloutView", () => {
         reports={[{ id: "r", lot: "P9", at: now.getTime() }]}
         payments={[]}
         badges={new Set(["first-signal"])}
+        leaderboard={board(145)}
         onReset={() => {}}
       />,
     );

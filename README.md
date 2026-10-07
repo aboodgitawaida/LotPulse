@@ -10,9 +10,9 @@ LotPulse shows, for every campus lot:
 - **One-tap reporting**: spot an enforcer, warn campus, earn clout.
 - **Clout System**: a weekly scout leaderboard, streaks and badges.
 
-> **Demo data.** Every threat level, forecast, report, payment and leaderboard entry is simulated
-> in the browser. LotPulse isn't affiliated with UTM, and it doesn't take payments or send real alerts.
-> For real parking, use UTM's official parking services.
+> **What's real.** With Supabase configured, sightings, clout and the weekly leaderboard are
+> shared live between students. Patrol forecasts and JIT payments are simulated. LotPulse isn't
+> affiliated with UTM and doesn't take payments. For real parking, use UTM's official services.
 
 ## Getting started
 
@@ -31,8 +31,25 @@ bun run dev        # http://localhost:3000
 | `bun run check`  | Typecheck, lint and run the tests    |
 | `bun run format` | Format everything with Prettier      |
 
-No environment variables or API keys are needed. The campus map uses
-[Leaflet](https://leafletjs.com) with free OpenStreetMap tiles and Esri satellite imagery.
+Without any environment variables the app runs in **demo mode** with simulated sightings. The
+campus map uses [Leaflet](https://leafletjs.com) with free OpenStreetMap tiles and Esri satellite
+imagery, so it never needs a key.
+
+## Live sightings (Supabase)
+
+1. **Database.** The schema is in `supabase/migrations/`. If the Supabase GitHub integration is
+   connected with "Deploy to production" on, merging to `main` applies it. Otherwise paste the
+   migration into the Supabase **SQL Editor** and run it once.
+2. **Anonymous sign-in.** In Supabase, open **Authentication → Sign In / Providers** and turn on
+   **Allow anonymous sign-ins**. Students pick a public scout name with their first report.
+3. **Keys.** In Vercel (**Project → Settings → Environment Variables**) add
+   `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (the anon / publishable key, which is
+   safe to expose), then redeploy. For local development copy `.env.example` to `.env`.
+
+The database enforces the rules itself: anyone can read sightings, only signed-in scouts can post
+as themselves, timestamps are set by the server, each scout can report a lot once per 15 minutes
+and 6 times an hour, and a sighting can be undone for 2 minutes. `src/test/database.test.ts` checks
+all of this against a real Postgres (PGlite).
 
 ## Deploying to Vercel
 
@@ -51,10 +68,13 @@ src/
   components/      Dashboard UI (focus lot, forecast, map, leaderboard, dialogs…)
   components/ui/   Low-level primitives (button, dialog, sheet, toaster)
   lib/lots.ts      Single source of truth for lots, positions and simulated forecasts
-  lib/store.ts     Client-side app state, persisted to localStorage
+  lib/store.tsx    App state: live (Supabase) or demo, plus local lot selection and sessions
+  lib/live.ts      Supabase data: live feed, leaderboard, sign-in, reporting
+supabase/
+  migrations/      Database schema, row level security and guards
   styles.css       Design tokens and component styles
 ```
 
 ## Tech
 
-TanStack Start · React 19 · Vite · Tailwind CSS 4 · Leaflet · Radix UI · Vitest
+TanStack Start · React 19 · Vite · Tailwind CSS 4 · Supabase · Leaflet · Radix UI · Vitest
