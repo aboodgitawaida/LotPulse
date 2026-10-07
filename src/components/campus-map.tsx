@@ -80,7 +80,7 @@ export function CampusMap({ selected, onSelect, onExpand, expanded = false, tone
             position: lotPositions[id],
             title: id,
             label: { text: id === "Inner Circle" ? "IC" : id, color: "#0b0e14", fontSize: "9px", fontWeight: "700" },
-            icon: pinIcon(google, TONE_COLORS[tones[id]] ?? TONE_COLORS.low, 1.1),
+            icon: pinIcon(google, TONE_COLORS[tones[id] ?? ""] ?? TONE_COLORS["low"], 1.1),
           });
           marker.addListener("click", () => onSelect(id));
           markersRef.current[id] = marker;
