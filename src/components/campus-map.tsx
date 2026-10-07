@@ -24,12 +24,12 @@ function loadMaps(): Promise<void> {
   if (mapsPromise) return mapsPromise;
   mapsPromise = new Promise((resolve, reject) => {
     const w = window as unknown as Record<string, any>;
-    if (w.google?.maps) return resolve();
+    if (w["google"]?.maps) return resolve();
     const key = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"];
     const channel = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID"];
     if (!key) return reject(new Error("Google Maps browser key is not configured"));
-    w.gm_authFailure = () => reject(new Error("Google Maps authorization failed"));
-    w.__lotpulseMapsReady = () => resolve();
+    w["gm_authFailure"] = () => { window.dispatchEvent(new Event("lotpulse-maps-auth-failure")); reject(new Error("Google Maps authorization failed")); };
+    w["__lotpulseMapsReady"] = () => resolve();
     const script = document.createElement("script");
     script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&callback=__lotpulseMapsReady&channel=${channel}`;
     script.async = true;
@@ -59,10 +59,12 @@ export function CampusMap({ selected, onSelect, onExpand, expanded = false, tone
 
   useEffect(() => {
     let cancelled = false;
+    const onAuthFailure = () => setStatus("error");
+    window.addEventListener("lotpulse-maps-auth-failure", onAuthFailure);
     loadMaps()
       .then(() => {
         if (cancelled || !containerRef.current) return;
-        const google = (window as unknown as Record<string, any>).google;
+        const google = (window as unknown as Record<string, any>)["google"];
         const map = new google.maps.Map(containerRef.current, {
           center: campusCenter,
           zoom: 16,
@@ -80,7 +82,7 @@ export function CampusMap({ selected, onSelect, onExpand, expanded = false, tone
             position: lotPositions[id],
             title: id,
             label: { text: id === "Inner Circle" ? "IC" : id, color: "#0b0e14", fontSize: "9px", fontWeight: "700" },
-            icon: pinIcon(google, TONE_COLORS[tones[id]] ?? TONE_COLORS.low, 1.1),
+            icon: pinIcon(google, TONE_COLORS[tones[id] ?? ""] ?? "#34d399", 1.1),
           });
           marker.addListener("click", () => onSelect(id));
           markersRef.current[id] = marker;
@@ -88,16 +90,16 @@ export function CampusMap({ selected, onSelect, onExpand, expanded = false, tone
         setStatus("ready");
       })
       .catch(() => { if (!cancelled) setStatus("error"); });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; window.removeEventListener("lotpulse-maps-auth-failure", onAuthFailure); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (status !== "ready") return;
-    const google = (window as unknown as Record<string, any>).google;
+    const google = (window as unknown as Record<string, any>)["google"];
     Object.entries(markersRef.current).forEach(([id, marker]) => {
       const isSelected = id === selected;
-      marker.setIcon(pinIcon(google, isSelected ? SELECT_COLOR : TONE_COLORS[tones[id]] ?? TONE_COLORS.low, isSelected ? 1.5 : 1.1));
+      marker.setIcon(pinIcon(google, isSelected ? SELECT_COLOR : TONE_COLORS[tones[id] ?? ""] ?? "#34d399", isSelected ? 1.5 : 1.1));
       marker.setZIndex(isSelected ? 10 : 1);
     });
     const position = lotPositions[selected as LotId];
