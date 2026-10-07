@@ -1,176 +1,168 @@
 import { useEffect, useRef, useState } from "react";
-import { Crosshair, Maximize2, Radar } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { campusCenter, lotPositions, type LotId } from "@/lib/campus-lots";
+import type { DivIcon, Map as LeafletMap, Marker } from "leaflet";
+import { Maximize2, Radar } from "lucide-react";
 
-const TONE_COLORS: Record<string, string> = { high: "#f0554a", medium: "#f5a524", low: "#34d399" };
-const SELECT_COLOR = "#5b9bff";
+import { CAMPUS_CENTER, LOTS, type LotId, type Tone } from "@/lib/lots";
+import { cn } from "@/lib/utils";
 
-const DARK_STYLES = [
-  { elementType: "geometry", stylers: [{ color: "#12161f" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#8a93a6" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#12161f" }] },
-  { featureType: "poi", stylers: [{ visibility: "off" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#232a38" }] },
-  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#161b26" }] },
-  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#6b7386" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0b1a26" }] },
-  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#14202a" }] },
-  { featureType: "transit", stylers: [{ visibility: "off" }] },
-];
+const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-let mapsPromise: Promise<void> | null = null;
-function loadMaps(): Promise<void> {
-  if (mapsPromise) return mapsPromise;
-  mapsPromise = new Promise((resolve, reject) => {
-    const w = window as unknown as Record<string, any>;
-    if (w["google"]?.maps) return resolve();
-    const key = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"];
-    const channel = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID"];
-    if (!key) return reject(new Error("Google Maps browser key is not configured"));
-    w["gm_authFailure"] = () => {
-      window.dispatchEvent(new Event("lotpulse-maps-auth-failure"));
-      reject(new Error("Google Maps authorization failed"));
-    };
-    w["__lotpulseMapsReady"] = () => resolve();
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&callback=__lotpulseMapsReady&channel=${channel}`;
-    script.async = true;
-    script.onerror = () => reject(new Error("Google Maps failed to load"));
-    document.head.appendChild(script);
-  });
-  return mapsPromise;
+type Leaflet = typeof import("leaflet");
+
+interface CampusMapProps {
+  selected: LotId;
+  tones: Record<LotId, Tone>;
+  onSelect: (lot: LotId) => void;
+  onExpand?: () => void;
+  expanded?: boolean;
 }
 
-function pinIcon(google: any, color: string, scale: number) {
-  return {
-    path: "M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z",
-    fillColor: color,
-    fillOpacity: 1,
-    strokeColor: "#0b0e14",
-    strokeWeight: 1.5,
-    scale,
-    anchor: new google.maps.Point(12, 22),
-  };
+function pinIcon(L: Leaflet, label: string, tone: Tone, selected: boolean): DivIcon {
+  return L.divIcon({
+    className: "map-pin-wrapper",
+    html: `<span class="map-pin" data-tone="${tone}" data-selected="${selected}"><span class="map-pin-ring"></span>${label}</span>`,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+  });
 }
 
 export function CampusMap({
   selected,
+  tones,
   onSelect,
   onExpand,
   expanded = false,
-  tones,
-}: {
-  selected: string;
-  onSelect: (lot: string) => void;
-  onExpand?: () => void;
-  expanded?: boolean;
-  tones: Record<string, string>;
-}) {
+}: CampusMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<Record<string, any>>({});
+  const leafletRef = useRef<Leaflet | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const markersRef = useRef<Partial<Record<LotId, Marker>>>({});
+  const onSelectRef = useRef(onSelect);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [tilesFailed, setTilesFailed] = useState(false);
 
   useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
+
+  // Leaflet touches `window` on import, so load it on the client only.
+  useEffect(() => {
     let cancelled = false;
-    const onAuthFailure = () => setStatus("error");
-    window.addEventListener("lotpulse-maps-auth-failure", onAuthFailure);
-    loadMaps()
-      .then(() => {
-        if (cancelled || !containerRef.current) return;
-        const google = (window as unknown as Record<string, any>)["google"];
-        const map = new google.maps.Map(containerRef.current, {
-          center: campusCenter,
+    let resizeObserver: ResizeObserver | undefined;
+
+    import("leaflet")
+      .then((module) => {
+        const L = (module.default ?? module) as Leaflet;
+        const container = containerRef.current;
+        if (cancelled || !container) return;
+        leafletRef.current = L;
+
+        const map = L.map(container, {
+          center: [CAMPUS_CENTER.lat, CAMPUS_CENTER.lng],
           zoom: 16,
-          styles: DARK_STYLES,
-          clickableIcons: false,
-          disableDefaultUI: true,
-          zoomControl: true,
-          gestureHandling: "greedy",
-          backgroundColor: "#12161f",
+          zoomControl: false,
+          attributionControl: true,
+          scrollWheelZoom: expanded,
         });
+        L.control.zoom({ position: "bottomright" }).addTo(map);
+        map.attributionControl.setPrefix(false);
+
+        let tileErrors = 0;
+        L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION, maxZoom: 19, subdomains: "abcd" })
+          .on("tileerror", () => {
+            tileErrors += 1;
+            if (tileErrors >= 4) setTilesFailed(true);
+          })
+          .on("tileload", () => setTilesFailed(false))
+          .addTo(map);
+
+        for (const lot of LOTS) {
+          const marker = L.marker([lot.position.lat, lot.position.lng], {
+            icon: pinIcon(L, lot.short, "low", false),
+            title: lot.name,
+            alt: lot.name,
+            keyboard: true,
+            riseOnHover: true,
+          })
+            .on("click", () => onSelectRef.current(lot.id))
+            .addTo(map);
+          markersRef.current[lot.id] = marker;
+        }
+
+        map.fitBounds(L.latLngBounds(LOTS.map((lot) => [lot.position.lat, lot.position.lng])), {
+          padding: [48, 48],
+          maxZoom: 17,
+        });
+
+        // Dialogs and responsive layouts resize the container after mount.
+        resizeObserver = new ResizeObserver(() => map.invalidateSize());
+        resizeObserver.observe(container);
+
         mapRef.current = map;
-        (Object.keys(lotPositions) as LotId[]).forEach((id) => {
-          const marker = new google.maps.Marker({
-            map,
-            position: lotPositions[id],
-            title: id,
-            label: {
-              text: id === "Inner Circle" ? "IC" : id,
-              color: "#0b0e14",
-              fontSize: "9px",
-              fontWeight: "700",
-            },
-            icon: pinIcon(google, TONE_COLORS[tones[id] ?? ""] ?? "#34d399", 1.1),
-          });
-          marker.addListener("click", () => onSelect(id));
-          markersRef.current[id] = marker;
-        });
         setStatus("ready");
       })
       .catch(() => {
         if (!cancelled) setStatus("error");
       });
+
     return () => {
       cancelled = true;
-      window.removeEventListener("lotpulse-maps-auth-failure", onAuthFailure);
+      resizeObserver?.disconnect();
+      mapRef.current?.remove();
+      mapRef.current = null;
+      markersRef.current = {};
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [expanded]);
 
   useEffect(() => {
-    if (status !== "ready") return;
-    const google = (window as unknown as Record<string, any>)["google"];
-    Object.entries(markersRef.current).forEach(([id, marker]) => {
-      const isSelected = id === selected;
-      marker.setIcon(
-        pinIcon(
-          google,
-          isSelected ? SELECT_COLOR : (TONE_COLORS[tones[id] ?? ""] ?? "#34d399"),
-          isSelected ? 1.5 : 1.1,
-        ),
-      );
-      marker.setZIndex(isSelected ? 10 : 1);
-    });
-    const position = lotPositions[selected as LotId];
-    if (position && mapRef.current) mapRef.current.panTo(position);
-  }, [selected, status, tones]);
+    const L = leafletRef.current;
+    if (status !== "ready" || !L) return;
+    for (const lot of LOTS) {
+      const isSelected = lot.id === selected;
+      const marker = markersRef.current[lot.id];
+      marker?.setIcon(pinIcon(L, lot.short, tones[lot.id], isSelected));
+      marker?.setZIndexOffset(isSelected ? 1000 : 0);
+    }
+    const lot = LOTS.find((item) => item.id === selected);
+    if (lot) mapRef.current?.panTo([lot.position.lat, lot.position.lng], { animate: true });
+  }, [selected, tones, status]);
 
   return (
-    <section className={`campus-map ${expanded ? "map-expanded" : ""}`} aria-label="UTM campus map">
-      <div className="map-heading">
-        <span>
-          <Crosshair size={14} /> CAMPUS RADAR
-        </span>
-        {onExpand && (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Expand campus map"
-            title="Expand campus map"
-            onClick={onExpand}
-          >
-            <Maximize2 />
-          </Button>
-        )}
-      </div>
-      <div ref={containerRef} className="map-canvas" />
-      {status === "loading" && (
-        <div className="map-overlay">
-          <Radar className="map-overlay-icon" />
-          <span>Acquiring signal…</span>
+    <section
+      className={cn("campus-map", expanded && "campus-map-expanded")}
+      aria-label="UTM campus map"
+    >
+      {!expanded && (
+        <div className="campus-map-header">
+          <span className="eyebrow">
+            <Radar aria-hidden /> Campus radar
+          </span>
+          {onExpand && (
+            <button
+              type="button"
+              className="icon-button"
+              onClick={onExpand}
+              aria-label="Expand campus map"
+            >
+              <Maximize2 aria-hidden />
+            </button>
+          )}
         </div>
       )}
-      {status === "error" && (
-        <div className="map-overlay">
-          <Radar className="map-overlay-icon" />
-          <span>Map signal unavailable</span>
+      <div ref={containerRef} className="campus-map-canvas" />
+      {status !== "ready" && (
+        <div className="campus-map-overlay" role="status">
+          <Radar className="campus-map-overlay-icon" aria-hidden />
+          <span>{status === "loading" ? "Acquiring signal…" : "Map unavailable"}</span>
         </div>
       )}
-      <div className="map-footer">
-        <span className="status-dot" /> UTM · MISSISSAUGA <span>LIVE MAP</span>
-      </div>
+      {status === "ready" && tilesFailed && (
+        <p className="campus-map-note" role="status">
+          Map tiles couldn't load. Lot pins still work.
+        </p>
+      )}
     </section>
   );
 }

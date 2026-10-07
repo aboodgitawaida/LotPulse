@@ -1,108 +1,227 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
 import { TrendingUp } from "lucide-react";
-import { forecastCurves, peakWindows, type LotId } from "@/lib/campus-lots";
 
-const START_HOUR = 6;
-const HOURS = 18; // 6:00–23:00
+import { formatHour, formatWindow } from "@/lib/format";
+import { dailyForecast, peakWindow, toneFor, type Lot } from "@/lib/lots";
 
-function hourLabel(hour: number) {
-  const h = hour % 12 === 0 ? 12 : hour % 12;
-  return `${h}${hour < 12 ? "AM" : "PM"}`;
+const FIRST_HOUR = 6;
+const LAST_HOUR = 23;
+const HEIGHT = 168;
+const PAD = { top: 16, right: 12, bottom: 28, left: 34 };
+const TICKS = [6, 9, 12, 15, 18, 21];
+
+function useElementWidth<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setWidth(Math.round(entry.contentRect.width));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, width] as const;
 }
 
-export function ThreatForecast({ lot }: { lot: LotId }) {
-  const curve = forecastCurves[lot];
-  const peak = peakWindows[lot];
-  const [nowHour, setNowHour] = useState<number | null>(null);
+export function ThreatForecast({ lot, now }: { lot: Lot; now: Date }) {
+  const gradientId = useId();
+  const [ref, width] = useElementWidth<HTMLDivElement>();
+  const [hover, setHover] = useState<number | null>(null);
 
-  useEffect(() => {
-    setNowHour(new Date().getHours() + new Date().getMinutes() / 60);
-  }, []);
+  const forecast = dailyForecast(lot, now);
+  const window = peakWindow(forecast);
+  const hours = Array.from({ length: LAST_HOUR - FIRST_HOUR + 1 }, (_, i) => FIRST_HOUR + i);
 
-  const width = 340;
-  const height = 120;
-  const padX = 12;
-  const padTop = 14;
-  const padBottom = 22;
-  const x = (i: number) => padX + (i / (HOURS - 1)) * (width - padX * 2);
-  const y = (v: number) => padTop + (1 - v / 100) * (height - padTop - padBottom);
-  const hourX = (hour: number) => x(hour - START_HOUR);
+  const plotWidth = Math.max(0, width - PAD.left - PAD.right);
+  const plotHeight = HEIGHT - PAD.top - PAD.bottom;
+  const x = (hour: number) =>
+    PAD.left + ((hour - FIRST_HOUR) / (LAST_HOUR - FIRST_HOUR)) * plotWidth;
+  const y = (value: number) => PAD.top + (1 - value / 100) * plotHeight;
+  const baseline = PAD.top + plotHeight;
 
-  const line = curve
-    .map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`)
-    .join(" ");
-  const area = `${line} L${x(HOURS - 1).toFixed(1)} ${height - padBottom} L${padX} ${height - padBottom} Z`;
-  const peakValue = Math.max(...curve);
-  const showNow = nowHour !== null && nowHour >= START_HOUR && nowHour <= START_HOUR + HOURS - 1;
+  const points = hours.map((hour) => [x(hour), y(forecast[hour] ?? 0)] as const);
+  const line = points
+    .map(([px, py], i) => `${i === 0 ? "M" : "L"}${px.toFixed(1)},${py.toFixed(1)}`)
+    .join("");
+  const area = `${line}L${x(LAST_HOUR).toFixed(1)},${baseline}L${x(FIRST_HOUR).toFixed(1)},${baseline}Z`;
+
+  const nowHour = now.getHours() + now.getMinutes() / 60;
+  const showNow = nowHour >= FIRST_HOUR && nowHour <= LAST_HOUR;
+  const valueAt = (hour: number) => {
+    const floor = Math.floor(hour);
+    const a = forecast[floor] ?? 0;
+    const b = forecast[Math.min(23, floor + 1)] ?? a;
+    return a + (b - a) * (hour - floor);
+  };
+
+  const onPointer = (event: PointerEvent<SVGSVGElement>) => {
+    if (plotWidth <= 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = (event.clientX - rect.left - PAD.left) / plotWidth;
+    const hour = Math.round(FIRST_HOUR + ratio * (LAST_HOUR - FIRST_HOUR));
+    setHover(Math.min(LAST_HOUR, Math.max(FIRST_HOUR, hour)));
+  };
+
+  const hoverValue = hover === null ? null : (forecast[hover] ?? 0);
 
   return (
-    <section className="forecast" aria-label={`Hourly threat forecast for ${lot}`}>
-      <div className="forecast-header">
-        <div className="metric-label">
-          <TrendingUp size={13} /> THREAT FORECAST · {lot === "Inner Circle" ? "IC" : lot}
-        </div>
+    <section className="card forecast" aria-labelledby={`${gradientId}-title`}>
+      <header className="card-header">
+        <h2 id={`${gradientId}-title`} className="eyebrow">
+          <TrendingUp aria-hidden /> Today's patrol forecast · {lot.short}
+        </h2>
         <span className="forecast-peak">
-          Peak window <strong>{peak.label}</strong>
+          {window ? (
+            <>
+              Peak <strong>{formatWindow(window)}</strong>
+            </>
+          ) : (
+            "No peak today"
+          )}
         </span>
+      </header>
+
+      <div ref={ref} className="forecast-plot">
+        {width > 0 && (
+          <svg
+            width={width}
+            height={HEIGHT}
+            className="forecast-chart"
+            aria-hidden
+            onPointerMove={onPointer}
+            onPointerDown={onPointer}
+            onPointerLeave={() => setHover(null)}
+          >
+            <defs>
+              <linearGradient
+                id={`${gradientId}-line`}
+                gradientUnits="userSpaceOnUse"
+                x1="0"
+                y1={baseline}
+                x2="0"
+                y2={PAD.top}
+              >
+                {/* Offsets track the threat thresholds: 40% medium, 70% high. */}
+                <stop offset="0%" stopColor="var(--tone-low)" />
+                <stop offset="36%" stopColor="var(--tone-low)" />
+                <stop offset="44%" stopColor="var(--tone-medium)" />
+                <stop offset="66%" stopColor="var(--tone-medium)" />
+                <stop offset="74%" stopColor="var(--tone-high)" />
+                <stop offset="100%" stopColor="var(--tone-high)" />
+              </linearGradient>
+              <linearGradient id={`${gradientId}-fill`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.24" />
+                <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+
+            {[0, 40, 70, 100].map((value) => (
+              <g key={value}>
+                <line
+                  x1={PAD.left}
+                  x2={width - PAD.right}
+                  y1={y(value)}
+                  y2={y(value)}
+                  className="forecast-grid"
+                />
+                <text
+                  x={PAD.left - 8}
+                  y={y(value)}
+                  className="forecast-axis"
+                  textAnchor="end"
+                  dominantBaseline="middle"
+                >
+                  {value}%
+                </text>
+              </g>
+            ))}
+
+            {window && (
+              <rect
+                x={x(Math.max(FIRST_HOUR, window.start))}
+                y={PAD.top}
+                width={Math.max(
+                  0,
+                  x(Math.min(LAST_HOUR, window.end)) - x(Math.max(FIRST_HOUR, window.start)),
+                )}
+                height={plotHeight}
+                className="forecast-peak-band"
+              />
+            )}
+
+            <path d={area} fill={`url(#${gradientId}-fill)`} />
+            <path d={line} stroke={`url(#${gradientId}-line)`} className="forecast-line" />
+
+            {showNow && (
+              <g className="forecast-now">
+                <line x1={x(nowHour)} x2={x(nowHour)} y1={PAD.top} y2={baseline} />
+                <circle cx={x(nowHour)} cy={y(valueAt(nowHour))} r={4.5} />
+                <text x={x(nowHour)} y={PAD.top - 5} textAnchor="middle">
+                  Now
+                </text>
+              </g>
+            )}
+
+            {hover !== null && hoverValue !== null && (
+              <g className="forecast-hover">
+                <line x1={x(hover)} x2={x(hover)} y1={PAD.top} y2={baseline} />
+                <circle cx={x(hover)} cy={y(hoverValue)} r={5} data-tone={toneFor(hoverValue)} />
+              </g>
+            )}
+
+            {TICKS.map((hour) => (
+              <text
+                key={hour}
+                x={x(hour)}
+                y={HEIGHT - 8}
+                className="forecast-axis"
+                textAnchor="middle"
+              >
+                {formatHour(hour)}
+              </text>
+            ))}
+          </svg>
+        )}
+        {hover !== null && hoverValue !== null && (
+          <div
+            className="forecast-tooltip"
+            data-tone={toneFor(hoverValue)}
+            style={{ left: Math.min(Math.max(x(hover), 56), width - 56) }}
+          >
+            <span>{formatHour(hover)}</span>
+            <strong>{hoverValue}%</strong>
+          </div>
+        )}
       </div>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="forecast-chart"
-        role="img"
-        aria-label={`Predicted threat peaks at ${peakValue}% during ${peak.label}`}
-      >
-        <defs>
-          <linearGradient id="forecast-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" className="forecast-fill-top" />
-            <stop offset="100%" className="forecast-fill-bottom" />
-          </linearGradient>
-        </defs>
-        {[25, 50, 75].map((v) => (
-          <line key={v} x1={padX} x2={width - padX} y1={y(v)} y2={y(v)} className="forecast-grid" />
-        ))}
-        <rect
-          x={hourX(peak.start)}
-          y={padTop}
-          width={hourX(peak.end) - hourX(peak.start)}
-          height={height - padTop - padBottom}
-          className="forecast-peak-band"
-        />
-        <path d={area} className="forecast-area" />
-        <path d={line} className="forecast-line" />
-        {showNow && (
-          <line
-            x1={hourX(nowHour)}
-            x2={hourX(nowHour)}
-            y1={padTop}
-            y2={height - padBottom}
-            className="forecast-now"
-          />
-        )}
-        {showNow && (
-          <circle
-            cx={hourX(nowHour)}
-            cy={y(curve[Math.min(HOURS - 1, Math.max(0, Math.round(nowHour - START_HOUR)))] ?? 0)}
-            r="3.5"
-            className="forecast-now-dot"
-          />
-        )}
-        {[6, 10, 14, 18, 22].map((h) => (
-          <text key={h} x={hourX(h)} y={height - 8} className="forecast-tick" textAnchor="middle">
-            {hourLabel(h)}
-          </text>
-        ))}
-      </svg>
-      <div className="forecast-legend">
+
+      <div className="sr-only">
+        <table>
+          <caption>
+            Hourly patrol probability for {lot.name} today
+            {window ? `, peaking at ${window.peak}% between ${formatWindow(window)}` : ""}
+          </caption>
+          <tbody>
+            {hours.map((hour) => (
+              <tr key={hour}>
+                <th scope="row">{formatHour(hour)}</th>
+                <td>{forecast[hour]}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <footer className="forecast-legend">
         <span>
-          <i className="legend-swatch legend-peak" /> High patrol probability
+          <i className="legend-swatch legend-peak" /> Peak window
         </span>
-        {showNow && (
-          <span>
-            <i className="legend-swatch legend-now" /> Now
-          </span>
-        )}
-        <span className="forecast-note">Simulated prediction</span>
-      </div>
+        <span>
+          <i className="legend-swatch legend-now" /> Now
+        </span>
+        <span className="forecast-note">Simulated forecast</span>
+      </footer>
     </section>
   );
 }
