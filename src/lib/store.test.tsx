@@ -42,13 +42,13 @@ describe("store", () => {
     expect(result.current.badges.has("first-signal")).toBe(true);
   });
 
-  it("undo removes the report and its points", () => {
+  it("undo removes the report and its points", async () => {
     const { result } = renderHook(useStore, { wrapper });
     let id = "";
-    act(() => {
-      id = result.current.report("P4").id;
+    await act(async () => {
+      id = (await result.current.report("P4")).id;
     });
-    act(() => result.current.undoReport(id));
+    await act(() => result.current.undoReport(id));
     expect(result.current.points).toBe(BASE_POINTS);
     expect(result.current.statusFor("P4").cooldownMinutes).toBe(0);
   });

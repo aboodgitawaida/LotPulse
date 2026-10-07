@@ -1,5 +1,6 @@
-// Client-side app state. Everything here is simulated and only lives in this
-// browser (persisted to localStorage so a refresh doesn't wipe your clout).
+// App state. Sightings, clout and the leaderboard come from Supabase when it's
+// configured ("live" mode) and are simulated in this browser otherwise ("demo"
+// mode). Lot selection and JIT parking sessions are always local.
 import {
   createContext,
   useCallback,
@@ -19,9 +20,13 @@ import {
   SEED_SIGHTINGS,
   SESSION_MINUTES,
   SPOTTED_WINDOW_MINUTES,
+  rankLeaderboard,
   type BadgeId,
+  type LeaderboardRow,
 } from "./community";
+import { useLiveCommunity } from "./live";
 import { LOT_IDS, getLot, isLotId, threatAt, toneFor, type LotId, type Tone } from "./lots";
+import { supabase } from "./supabase";
 
 const STORAGE_KEY = "lotpulse:v1";
 const MINUTE = 60_000;
@@ -152,19 +157,28 @@ export interface LotStatus {
 }
 
 interface StoreValue {
+  mode: "demo" | "live";
+  /** Live mode only: true until the first sightings load. */
+  loading: boolean;
   now: Date;
   selected: LotId;
+  /** Your sightings (this week in live mode). */
   reports: Report[];
   payments: Payment[];
   sightings: Sighting[];
+  leaderboard: LeaderboardRow[];
   points: number;
   badges: Set<BadgeId>;
   rank: number;
+  /** Live mode: you still need to pick a public scout name before reporting. */
+  needsName: boolean;
   statusFor: (lot: LotId) => LotStatus;
   select: (lot: LotId) => void;
-  report: (lot: LotId) => Report;
-  undoReport: (id: string) => void;
+  /** Rejects with a user-facing message (cooldown, rate limit, taken name…). */
+  report: (lot: LotId, scoutName?: string) => Promise<Report>;
+  undoReport: (id: string) => Promise<void>;
   pay: (lot: LotId) => void;
+  /** Demo mode only. */
   reset: () => void;
 }
 
@@ -189,7 +203,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => saveState(state), [state]);
 
+  const live = useLiveCommunity(supabase);
+
   const sightings = useMemo<Sighting[]>(() => {
+    if (live) {
+      return live.sightings.map((s) => ({
+        id: s.id,
+        lot: s.lot,
+        scout: s.scout,
+        at: s.at,
+        mine: s.userId === live.userId,
+      }));
+    }
     const seeded = SEED_SIGHTINGS.map((seed, index) => ({
       id: `seed-${index}`,
       lot: seed.lot,
@@ -205,20 +230,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       mine: true,
     }));
     return [...seeded, ...mine].sort((a, b) => b.at - a.at);
-  }, [openedAt, state.reports]);
+  }, [live, openedAt, state.reports]);
 
-  const points = BASE_POINTS + state.reports.length * POINTS_PER_REPORT;
-  const rank = OTHER_SCOUTS.filter((scout) => scout.points > points).length + 1;
+  const reports = live ? live.myReports : state.reports;
+
+  const leaderboard = useMemo(() => {
+    if (live) return live.leaderboard;
+    const demoPoints = BASE_POINTS + state.reports.length * POINTS_PER_REPORT;
+    return rankLeaderboard(
+      OTHER_SCOUTS.map((scout) => ({ name: scout.name, points: scout.points, you: false })),
+      { name: "You", points: demoPoints },
+    );
+  }, [live, state.reports.length]);
+
+  const you = leaderboard.find((row) => row.you);
+  const points = you?.points ?? 0;
+  const rank = you?.rank ?? leaderboard.length + 1;
 
   const badges = useMemo(() => {
     const earned = new Set<BadgeId>();
-    const reportedLots = new Set(state.reports.map((r) => r.lot));
-    if (state.reports.length >= 1) earned.add("first-signal");
-    if (state.reports.length >= 3) earned.add("hat-trick");
+    const reportedLots = new Set(reports.map((r) => r.lot));
+    if (reports.length >= 1) earned.add("first-signal");
+    if (reports.length >= 3) earned.add("hat-trick");
     if (LOT_IDS.every((id) => reportedLots.has(id))) earned.add("campus-wide");
     if (state.payments.length > 0) earned.add("just-in-time");
     return earned;
-  }, [state.reports, state.payments]);
+  }, [reports, state.payments]);
 
   const statusFor = useCallback(
     (lotId: LotId): LotStatus => {
@@ -226,7 +263,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const lastSighting = sightings.find((s) => s.lot === lotId) ?? null;
       const spotted =
         lastSighting !== null && nowMs - lastSighting.at < SPOTTED_WINDOW_MINUTES * MINUTE;
-      const lastMine = state.reports.filter((r) => r.lot === lotId).at(-1);
+      const lastMine = reports
+        .filter((r) => r.lot === lotId)
+        .reduce<Report | undefined>(
+          (latest, r) => (!latest || r.at > latest.at ? r : latest),
+          undefined,
+        );
       const cooldownMs = lastMine ? lastMine.at + REPORT_COOLDOWN_MINUTES * MINUTE - nowMs : 0;
       // A fresh sighting means enforcement is on site: lift the prediction.
       const predicted = threatAt(getLot(lotId), now);
@@ -240,35 +282,59 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         session: state.payments.find((p) => p.lot === lotId && p.until > nowMs) ?? null,
       };
     },
-    [now, sightings, state.reports, state.payments],
+    [now, sightings, reports, state.payments],
   );
 
   const value = useMemo<StoreValue>(
     () => ({
+      mode: live ? "live" : "demo",
+      loading: live?.loading ?? false,
       now,
       selected: state.selected,
-      reports: state.reports,
+      reports,
       payments: state.payments,
       sightings,
+      leaderboard,
       points,
       badges,
       rank,
+      needsName: live !== null && live.scoutName === null,
       statusFor,
       select: (lot) => dispatch({ type: "select", lot }),
-      report: (lot) => {
+      report: async (lot, scoutName) => {
+        if (live) {
+          const report = await live.report(lot, scoutName);
+          refreshNow();
+          return report;
+        }
         const report = { id: `r-${Date.now().toString(36)}`, lot, at: Date.now() };
         dispatch({ type: "report", report });
         refreshNow();
         return report;
       },
-      undoReport: (id) => dispatch({ type: "undo-report", id }),
+      undoReport: async (id) => {
+        if (live) return live.undoReport(id);
+        dispatch({ type: "undo-report", id });
+      },
       pay: (lot) => {
         dispatch({ type: "pay", lot, at: Date.now() });
         refreshNow();
       },
       reset: () => dispatch({ type: "reset" }),
     }),
-    [now, refreshNow, state, sightings, points, badges, rank, statusFor],
+    [
+      live,
+      now,
+      refreshNow,
+      state,
+      reports,
+      sightings,
+      leaderboard,
+      points,
+      badges,
+      rank,
+      statusFor,
+    ],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

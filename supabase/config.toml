@@ -1,0 +1,8 @@
+# Supabase CLI / GitHub integration config. Everything not listed uses the
+# CLI defaults. Database changes live in supabase/migrations.
+project_id = "lotspot-utm"
+
+[auth]
+# Scouts sign in anonymously before their first report. On the hosted project
+# this must also be switched on in Authentication → Sign In / Providers.
+enable_anonymous_sign_ins = true

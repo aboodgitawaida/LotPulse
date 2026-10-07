@@ -6,6 +6,9 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   server: { port: 3000 },
+  // NEXT_PUBLIC_ lets the Supabase ↔ Vercel integration's public variables
+  // reach the browser without renaming them. Only public keys use that prefix.
+  envPrefix: ["VITE_", "NEXT_PUBLIC_"],
   resolve: {
     tsconfigPaths: true,
     dedupe: ["react", "react-dom"],

@@ -55,6 +55,8 @@ function Dashboard() {
   const navigate = useNavigate({ from: "/" });
   const store = useStore();
   const [dialog, setDialog] = useState<"report" | "pay" | "map" | null>(null);
+  const [sending, setSending] = useState(false);
+  const live = store.mode === "live";
 
   const lot = getLot(store.selected);
   const status = store.statusFor(lot.id);
@@ -74,14 +76,30 @@ function Dashboard() {
     if (view !== "radar") void navigate({ search: {} });
   };
 
-  const confirmReport = () => {
-    const report = store.report(lot.id);
-    setDialog(null);
-    toast.success(`Alert sent for ${lot.name}`, {
-      description: `+${POINTS_PER_REPORT} clout. Thanks for looking out.`,
-      duration: 8000,
-      action: { label: "Undo", onClick: () => store.undoReport(report.id) },
-    });
+  const confirmReport = async (scoutName?: string) => {
+    setSending(true);
+    try {
+      const report = await store.report(lot.id, scoutName);
+      setDialog(null);
+      toast.success(`Alert sent for ${lot.name}`, {
+        description: `+${POINTS_PER_REPORT} clout. Thanks for looking out.`,
+        duration: 8000,
+        action: {
+          label: "Undo",
+          onClick: () => {
+            store.undoReport(report.id).then(
+              () => toast("Sighting removed"),
+              (error: unknown) =>
+                toast.error(error instanceof Error ? error.message : "Couldn't undo."),
+            );
+          },
+        },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't send the alert.");
+    } finally {
+      setSending(false);
+    }
   };
 
   const confirmPayment = () => {
@@ -111,7 +129,9 @@ function Dashboard() {
                 <h1>{greeting(store.now)}</h1>
                 <p className="page-subtitle">Here's the patrol outlook for {weekday}.</p>
               </div>
-              <span className="demo-chip">Demo data</span>
+              <span className="demo-chip" data-live={live}>
+                {live ? "Live reports · simulated forecasts" : "Demo data"}
+              </span>
             </div>
 
             <LotSwitcher selected={lot.id} statusFor={store.statusFor} onSelect={selectLot} />
@@ -140,8 +160,14 @@ function Dashboard() {
                     onExpand={() => setDialog("map")}
                   />
                 </div>
-                <ActivityFeed sightings={store.sightings} now={store.now} onSelect={selectLot} />
-                <Leaderboard points={store.points} />
+                <ActivityFeed
+                  sightings={store.sightings}
+                  now={store.now}
+                  onSelect={selectLot}
+                  live={live}
+                  loading={store.loading}
+                />
+                <Leaderboard rows={store.leaderboard} />
               </aside>
             </div>
           </>
@@ -160,10 +186,13 @@ function Dashboard() {
               reports={store.reports}
               payments={store.payments}
               badges={store.badges}
-              onReset={() => {
-                store.reset();
-                toast("Demo progress reset");
-              }}
+              leaderboard={store.leaderboard}
+              {...(!live && {
+                onReset: () => {
+                  store.reset();
+                  toast("Demo progress reset");
+                },
+              })}
             />
           </>
         )}
@@ -180,6 +209,9 @@ function Dashboard() {
 
       <ReportDialog
         lot={lot}
+        live={live}
+        needsName={store.needsName}
+        busy={sending}
         open={dialog === "report"}
         onOpenChange={(open) => setDialog(open ? "report" : null)}
         onConfirm={confirmReport}

@@ -26,6 +26,24 @@ export const OTHER_SCOUTS: readonly Scout[] = [
   { name: "ccit_crawler", points: 135 },
 ];
 
+export interface LeaderboardRow {
+  name: string;
+  points: number;
+  you: boolean;
+  rank: number;
+}
+
+/** Sort by points (you first on ties) and number the ranks. */
+export function rankLeaderboard(
+  rows: readonly Omit<LeaderboardRow, "rank">[],
+  extraYou: { name: string; points: number } | null = null,
+): LeaderboardRow[] {
+  const all = extraYou ? [...rows, { ...extraYou, you: true }] : [...rows];
+  return all
+    .sort((a, b) => b.points - a.points || Number(b.you) - Number(a.you))
+    .map((row, index) => ({ ...row, rank: index + 1 }));
+}
+
 export interface SeedSighting {
   lot: LotId;
   scout: string;

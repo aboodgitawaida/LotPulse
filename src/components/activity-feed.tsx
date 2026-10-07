@@ -9,19 +9,33 @@ interface ActivityFeedProps {
   now: Date;
   onSelect: (lot: LotId) => void;
   limit?: number;
+  live?: boolean;
+  loading?: boolean;
 }
 
-export function ActivityFeed({ sightings, now, onSelect, limit = 5 }: ActivityFeedProps) {
+export function ActivityFeed({
+  sightings,
+  now,
+  onSelect,
+  limit = 5,
+  live = false,
+  loading = false,
+}: ActivityFeedProps) {
   return (
     <section className="card feed" aria-labelledby="feed-title">
       <header className="card-header">
         <h2 id="feed-title" className="eyebrow">
           <Activity aria-hidden /> Recent sightings
         </h2>
-        <span className="live-chip">
-          <span className="status-dot" aria-hidden /> Demo feed
+        <span className="live-chip" data-live={live}>
+          <span className="status-dot" aria-hidden /> {live ? "Live" : "Demo feed"}
         </span>
       </header>
+      {sightings.length === 0 && (
+        <p className="card-empty">
+          {loading ? "Loading sightings…" : "No sightings in the last 24 hours. Quiet day so far."}
+        </p>
+      )}
       <ol className="feed-list">
         {sightings.slice(0, limit).map((sighting) => (
           <li key={sighting.id}>
