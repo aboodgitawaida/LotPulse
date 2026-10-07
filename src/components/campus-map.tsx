@@ -62,7 +62,7 @@ export function CampusMap({ selected, onSelect, onExpand, expanded = false, tone
     loadMaps()
       .then(() => {
         if (cancelled || !containerRef.current) return;
-        const google = (window as unknown as Record<string, any>).google;
+        const google = (window as unknown as Record<string, any>)["google"];
         const map = new google.maps.Map(containerRef.current, {
           center: campusCenter,
           zoom: 16,
@@ -94,10 +94,10 @@ export function CampusMap({ selected, onSelect, onExpand, expanded = false, tone
 
   useEffect(() => {
     if (status !== "ready") return;
-    const google = (window as unknown as Record<string, any>).google;
+    const google = (window as unknown as Record<string, any>)["google"];
     Object.entries(markersRef.current).forEach(([id, marker]) => {
       const isSelected = id === selected;
-      marker.setIcon(pinIcon(google, isSelected ? SELECT_COLOR : TONE_COLORS[tones[id]] ?? TONE_COLORS.low, isSelected ? 1.5 : 1.1));
+      marker.setIcon(pinIcon(google, isSelected ? SELECT_COLOR : TONE_COLORS[tones[id] ?? ""] ?? TONE_COLORS["low"], isSelected ? 1.5 : 1.1));
       marker.setZIndex(isSelected ? 10 : 1);
     });
     const position = lotPositions[selected as LotId];
