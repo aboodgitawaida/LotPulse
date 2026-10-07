@@ -24,12 +24,12 @@ function loadMaps(): Promise<void> {
   if (mapsPromise) return mapsPromise;
   mapsPromise = new Promise((resolve, reject) => {
     const w = window as unknown as Record<string, any>;
-    if (w.google?.maps) return resolve();
+    if (w["google"]?.maps) return resolve();
     const key = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"];
     const channel = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID"];
     if (!key) return reject(new Error("Google Maps browser key is not configured"));
-    w.gm_authFailure = () => reject(new Error("Google Maps authorization failed"));
-    w.__lotpulseMapsReady = () => resolve();
+    w["gm_authFailure"] = () => reject(new Error("Google Maps authorization failed"));
+    w["__lotpulseMapsReady"] = () => resolve();
     const script = document.createElement("script");
     script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&callback=__lotpulseMapsReady&channel=${channel}`;
     script.async = true;
