@@ -28,7 +28,7 @@ function loadMaps(): Promise<void> {
     const key = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"];
     const channel = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID"];
     if (!key) return reject(new Error("Google Maps browser key is not configured"));
-    w["gm_authFailure"] = () => reject(new Error("Google Maps authorization failed"));
+    w["gm_authFailure"] = () => { window.dispatchEvent(new Event("lotpulse-maps-auth-failure")); reject(new Error("Google Maps authorization failed")); };
     w["__lotpulseMapsReady"] = () => resolve();
     const script = document.createElement("script");
     script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&callback=__lotpulseMapsReady&channel=${channel}`;
@@ -59,6 +59,8 @@ export function CampusMap({ selected, onSelect, onExpand, expanded = false, tone
 
   useEffect(() => {
     let cancelled = false;
+    const onAuthFailure = () => setStatus("error");
+    window.addEventListener("lotpulse-maps-auth-failure", onAuthFailure);
     loadMaps()
       .then(() => {
         if (cancelled || !containerRef.current) return;
