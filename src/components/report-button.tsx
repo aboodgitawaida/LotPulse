@@ -25,7 +25,11 @@ export function ReportButton({ lot, cooldownMinutes, onReport }: ReportButtonPro
               : `Warn everyone parked here · +${POINTS_PER_REPORT} clout`}
           </small>
         </span>
-        {!coolingDown && <ArrowRight className="report-button-arrow" aria-hidden />}
+        {!coolingDown && (
+          <span className="report-button-go" aria-hidden>
+            <ArrowRight className="report-button-arrow" />
+          </span>
+        )}
       </button>
     </div>
   );
