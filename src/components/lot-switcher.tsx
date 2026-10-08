@@ -10,7 +10,7 @@ interface LotSwitcherProps {
 export function LotSwitcher({ selected, statusFor, onSelect }: LotSwitcherProps) {
   return (
     <nav className="lot-switcher" aria-label="Choose a lot">
-      {LOTS.map((lot) => {
+      {LOTS.map((lot, index) => {
         const status = statusFor(lot.id);
         return (
           <button
@@ -23,7 +23,12 @@ export function LotSwitcher({ selected, statusFor, onSelect }: LotSwitcherProps)
             onClick={() => onSelect(lot.id)}
           >
             <span className="lot-chip-top">
-              <span className="lot-chip-name">{lot.short}</span>
+              <span className="lot-chip-name">
+                <span className="lot-chip-index" aria-hidden>
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                {lot.short}
+              </span>
               {status.spotted && <span className="spotted-dot" aria-hidden />}
             </span>
             <span className="lot-chip-threat">

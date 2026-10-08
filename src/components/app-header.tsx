@@ -21,6 +21,7 @@ export function AppHeader({ view, points }: { view: View; points: number }) {
           search={{}}
           className="topnav-link"
           aria-current={view === "radar" ? "page" : undefined}
+          data-current={view === "radar"}
         >
           <Radar aria-hidden /> Radar
         </Link>
@@ -29,6 +30,7 @@ export function AppHeader({ view, points }: { view: View; points: number }) {
           search={{ view: "clout" }}
           className="topnav-link"
           aria-current={view === "clout" ? "page" : undefined}
+          data-current={view === "clout"}
         >
           <Trophy aria-hidden /> Clout
         </Link>
@@ -54,6 +56,7 @@ export function MobileNav({ view, onOpenMap }: { view: View; onOpenMap: () => vo
         search={{}}
         className="mobile-nav-link"
         aria-current={view === "radar" ? "page" : undefined}
+        data-current={view === "radar"}
       >
         <Radar aria-hidden /> Radar
       </Link>
@@ -65,6 +68,7 @@ export function MobileNav({ view, onOpenMap }: { view: View; onOpenMap: () => vo
         search={{ view: "clout" }}
         className="mobile-nav-link"
         aria-current={view === "clout" ? "page" : undefined}
+        data-current={view === "clout"}
       >
         <Trophy aria-hidden /> Clout
       </Link>

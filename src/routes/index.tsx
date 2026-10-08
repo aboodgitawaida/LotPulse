@@ -8,15 +8,18 @@ import { BrandMark } from "@/components/brand-mark";
 import { CampusMap } from "@/components/campus-map";
 import { CloutView } from "@/components/clout-view";
 import { FocusLot } from "@/components/focus-lot";
+import { Hero } from "@/components/hero";
 import { Leaderboard } from "@/components/leaderboard";
 import { PaymentDialog, ReportDialog } from "@/components/lot-dialogs";
 import { LotSwitcher } from "@/components/lot-switcher";
 import { ReportButton } from "@/components/report-button";
 import { ThreatForecast } from "@/components/threat-forecast";
+import { Ticker } from "@/components/ticker";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
 import { POINTS_PER_REPORT } from "@/lib/community";
-import { LOTS, getLot, type LotId, type Tone } from "@/lib/lots";
+import { LOTS, TONE_LABEL, getLot, type LotId, type Tone } from "@/lib/lots";
+import { trackSpotlight } from "@/lib/spotlight";
 import { StoreProvider, useStore } from "@/lib/store";
 
 interface DashboardSearch {
@@ -43,10 +46,10 @@ function DashboardPage() {
 
 function greeting(date: Date) {
   const hour = date.getHours();
-  if (hour < 5) return "Late night, scout.";
-  if (hour < 12) return "Good morning, scout.";
-  if (hour < 18) return "Good afternoon, scout.";
-  return "Good evening, scout.";
+  if (hour < 5) return ["Late night,", "scout."];
+  if (hour < 12) return ["Good morning,", "scout."];
+  if (hour < 18) return ["Good afternoon,", "scout."];
+  return ["Good evening,", "scout."];
 }
 
 function Dashboard() {
@@ -112,9 +115,23 @@ function Dashboard() {
   };
 
   const weekday = store.now.toLocaleDateString("en-CA", { weekday: "long" });
+  const statuses = LOTS.map((item) => ({ lot: item, status: statusFor(item.id) }));
+  const hottest = statuses.reduce((top, item) =>
+    item.status.threat > top.status.threat ? item : top,
+  );
+  const spottedCount = statuses.filter((item) => item.status.spotted).length;
+  const tickerItems = [
+    { label: live ? "Live scout network" : "Demo radar" },
+    ...statuses.map(({ lot: item, status: itemStatus }) => ({
+      label: `${item.short} ${itemStatus.threat}% · ${TONE_LABEL[itemStatus.tone]}${itemStatus.spotted ? " · spotted" : ""}`,
+      tone: itemStatus.tone,
+    })),
+    { label: "Report it, earn clout" },
+  ];
 
   return (
-    <div className="app">
+    <div className="app" onPointerMove={trackSpotlight}>
+      <div className="scroll-progress" aria-hidden />
       <a href="#main" className="skip-link">
         Skip to content
       </a>
@@ -123,16 +140,44 @@ function Dashboard() {
       <main id="main" className="page" data-view={view}>
         {view === "radar" ? (
           <>
-            <div className="page-intro">
-              <div>
-                <p className="eyebrow">University of Toronto Mississauga</p>
-                <h1>{greeting(store.now)}</h1>
-                <p className="page-subtitle">Here's the patrol outlook for {weekday}.</p>
-              </div>
-              <span className="demo-chip" data-live={live}>
-                {live ? "Live reports · simulated forecasts" : "Demo data"}
-              </span>
-            </div>
+            <Hero
+              eyebrow="University of Toronto Mississauga"
+              lines={greeting(store.now)}
+              subtitle={
+                <>
+                  Here's the patrol outlook for {weekday}. Pick a lot, watch the curve, warn the
+                  campus.
+                </>
+              }
+              aside={
+                <>
+                  <span className="demo-chip" data-live={live}>
+                    {live ? "Live reports · simulated forecasts" : "Demo data"}
+                  </span>
+                  <button
+                    type="button"
+                    className="hero-stat"
+                    data-tone={hottest.status.tone}
+                    onClick={() => selectLot(hottest.lot.id)}
+                  >
+                    <span className="hero-stat-value">
+                      {hottest.status.threat}
+                      <small>%</small>
+                    </span>
+                    <span className="hero-stat-label">
+                      Hottest right now · <strong>{hottest.lot.name}</strong>
+                      <span>
+                        {spottedCount === 0
+                          ? "No lots spotted"
+                          : `${spottedCount} ${spottedCount === 1 ? "lot" : "lots"} spotted`}
+                      </span>
+                    </span>
+                  </button>
+                </>
+              }
+            />
+
+            <Ticker items={tickerItems} />
 
             <LotSwitcher selected={lot.id} statusFor={store.statusFor} onSelect={selectLot} />
 
@@ -173,13 +218,11 @@ function Dashboard() {
           </>
         ) : (
           <>
-            <div className="page-intro">
-              <div>
-                <p className="eyebrow">Clout system</p>
-                <h1>Good scouts get clout.</h1>
-                <p className="page-subtitle">Every sighting helps a classmate dodge a ticket.</p>
-              </div>
-            </div>
+            <Hero
+              eyebrow="Clout system"
+              lines={["Good scouts", "get clout."]}
+              subtitle="Every sighting helps a classmate dodge a ticket."
+            />
             <CloutView
               points={store.points}
               rank={store.rank}
@@ -198,10 +241,17 @@ function Dashboard() {
         )}
 
         <footer className="page-footer">
-          <span className="footer-brand">
-            <BrandMark className="footer-mark" /> LotPulse · for students, by students
-          </span>
-          <span>Simulated demo. Not affiliated with UTM. Always follow posted parking rules.</span>
+          <p className="footer-wordmark" aria-hidden>
+            Lot<em>Pulse</em>
+          </p>
+          <div className="footer-row">
+            <span className="footer-brand">
+              <BrandMark className="footer-mark" /> LotPulse · for students, by students
+            </span>
+            <span>
+              Simulated demo. Not affiliated with UTM. Always follow posted parking rules.
+            </span>
+          </div>
         </footer>
       </main>
 
