@@ -11,7 +11,8 @@ LotPulse shows, for every campus lot:
 - **Clout System**: a weekly scout leaderboard, streaks and badges.
 
 > **What's real.** With Supabase configured, sightings, clout and the weekly leaderboard are
-> shared live between students. Patrol forecasts and JIT payments are simulated. LotPulse isn't
+> shared live between students. Patrol forecasts are simulated, and the simulated JIT payment
+> preview only appears in demo mode, so nobody mistakes it for a real permit. LotPulse isn't
 > affiliated with UTM and doesn't take payments. For real parking, use UTM's official services.
 
 ## Getting started
@@ -45,13 +46,21 @@ imagery, so it never needs a key.
 3. **Keys.** In Vercel (**Project → Settings → Environment Variables**) add
    `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (the anon / publishable key, which is
    safe to expose), then redeploy. For local development copy `.env.example` to `.env`.
+4. **Optional.** `VITE_SITE_URL` sets the absolute URL used in link previews (it defaults to
+   Vercel's production domain), and `VITE_CONTACT_EMAIL` adds a data-deletion contact to
+   `/privacy`.
 
 The database enforces the rules itself: anyone can read sightings, only signed-in scouts can post
 as themselves, timestamps are set by the server, each scout can report a lot once per 15 minutes
-and 6 times an hour, and a sighting can be undone for 2 minutes. `src/test/database.test.ts` checks
+and 6 times an hour, and a sighting can be undone for 2 minutes. Sightings older than 24 hours are
+hidden from everyone but their scout (the weekly leaderboard is a function that only returns
+totals), and scout names that pose as staff or the app are rejected. `src/test/database.test.ts` checks
 all of this against a real Postgres (PGlite).
 
 ## Deploying to Vercel
+
+Security headers (CSP, frame blocking, referrer policy) are set in `vite.config.ts` through Nitro
+route rules, so they ship with every deploy.
 
 1. Push this repository to GitHub.
 2. In Vercel, choose **Add New → Project** and import the repo.
@@ -66,13 +75,13 @@ Every branch gets its own preview URL, and `main` deploys to production.
 src/
   routes/          File-based routes (__root.tsx is the HTML shell, index.tsx the dashboard)
   components/      Dashboard UI (focus lot, forecast, map, leaderboard, dialogs…)
-  components/ui/   Low-level primitives (button, dialog, sheet, toaster)
+  components/ui/   Low-level primitives (button, dialog, toaster)
   lib/lots.ts      Single source of truth for lots, positions and simulated forecasts
   lib/store.tsx    App state: live (Supabase) or demo, plus local lot selection and sessions
   lib/live.ts      Supabase data: live feed, leaderboard, sign-in, reporting
+  styles.css       Design tokens and component styles
 supabase/
   migrations/      Database schema, row level security and guards
-  styles.css       Design tokens and component styles
 ```
 
 ## Tech

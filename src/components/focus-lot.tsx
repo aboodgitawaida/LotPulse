@@ -9,7 +9,9 @@ interface FocusLotProps {
   lot: Lot;
   status: LotStatus;
   now: Date;
-  onPay: () => void;
+  /** Simulated JIT payment. Omitted in live mode, where it could pass for a real permit. */
+  onPay?: () => void;
+  live?: boolean;
 }
 
 function OutlookText({ lot, now }: { lot: Lot; now: Date }) {
@@ -48,7 +50,7 @@ function OutlookText({ lot, now }: { lot: Lot; now: Date }) {
   }
 }
 
-export function FocusLot({ lot, status, now, onPay }: FocusLotProps) {
+export function FocusLot({ lot, status, now, onPay, live = false }: FocusLotProps) {
   const { lastSighting, session } = status;
   const sessionMinutes = session ? Math.ceil((session.until - now.getTime()) / 60_000) : 0;
 
@@ -112,20 +114,30 @@ export function FocusLot({ lot, status, now, onPay }: FocusLotProps) {
       </div>
 
       <footer className="focus-lot-footer">
-        <button type="button" className="jit-button" onClick={onPay} data-active={session !== null}>
-          {session ? <TimerReset aria-hidden /> : <CreditCard aria-hidden />}
-          {session ? (
-            <span>
-              Session · <strong>{formatDuration(sessionMinutes)} left</strong>
-            </span>
-          ) : (
-            <span>
-              Pay 30 min <span className="jit-tag">JIT</span>
-            </span>
-          )}
-        </button>
+        {onPay && (
+          <button
+            type="button"
+            className="jit-button"
+            onClick={onPay}
+            data-active={session !== null}
+          >
+            {session ? <TimerReset aria-hidden /> : <CreditCard aria-hidden />}
+            {session ? (
+              <span>
+                Demo session · <strong>{formatDuration(sessionMinutes)} left</strong>
+              </span>
+            ) : (
+              <span>
+                Pay 30 min <span className="jit-tag">Demo</span>
+              </span>
+            )}
+          </button>
+        )}
         <span className="focus-lot-updated">
-          <Clock3 aria-hidden /> Simulated · student signals + forecast
+          <Clock3 aria-hidden />{" "}
+          {live
+            ? "Live scout reports · simulated forecast"
+            : "Simulated · student signals + forecast"}
         </span>
       </footer>
     </section>

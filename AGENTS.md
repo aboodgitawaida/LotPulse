@@ -8,7 +8,7 @@
 
 ## Application rules
 
-- **Sightings, clout and the leaderboard are live** when Supabase credentials are set (`src/lib/supabase.ts`, `src/lib/live.ts`), and simulated in demo mode when they aren't. Forecasts, threat curves and JIT payments are always simulated; keep those disclaimers visible.
+- **Sightings, clout and the leaderboard are live** when Supabase credentials are set (`src/lib/supabase.ts`, `src/lib/live.ts`), and simulated in demo mode when they aren't. Forecasts, threat curves and JIT payments are always simulated; keep those disclaimers visible. The JIT payment preview is demo-mode only.
 - Database changes go in a new file under `supabase/migrations/` (never edit an applied one). Security lives in the database: RLS policies plus the `guard_sighting` trigger (server timestamps, 15-minute per-lot cooldown, 6 per hour). `src/test/database.test.ts` runs every migration in PGlite, so extend it with each change.
 - Reports only ever contain the lot, the time and a self-chosen scout name. Don't add photos, free text or anything that identifies officers or students.
 - `src/lib/lots.ts` is the single source of truth for lot metadata, positions and forecast curves. The map, dashboard and forecast all read from it.

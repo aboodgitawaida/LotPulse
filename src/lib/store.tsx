@@ -189,7 +189,15 @@ function useNow(intervalMs = 20_000) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), intervalMs);
-    return () => window.clearInterval(id);
+    // Background tabs throttle timers; catch up as soon as the page is back.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") setNow(new Date());
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [intervalMs]);
   const refresh = useCallback(() => setNow(new Date()), []);
   return [now, refresh] as const;
