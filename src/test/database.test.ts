@@ -170,11 +170,60 @@ describe("sightings migration", () => {
 
     await as("anon");
     const { rows } = await db.query<{ username: string; points: number }>(
-      "select username, points from public.weekly_leaderboard",
+      "select username, points from public.weekly_leaderboard()",
     );
     expect(rows).toEqual([
       { username: "alice_scout", points: 50 },
       { username: "bob", points: 25 },
     ]);
+  });
+
+  it("hides sightings older than 24 hours, except your own, but still scores them", async () => {
+    await backdate(ALICE, "P9", 26 * 60);
+    await backdate(BOB, "P4", 10);
+
+    await as("anon");
+    const { rows: visible } = await db.query<{ lot_id: string }>(
+      "select lot_id from public.sightings",
+    );
+    expect(visible).toEqual([{ lot_id: "P4" }]);
+
+    await as("authenticated", ALICE);
+    const { rows: own } = await db.query<{ lot_id: string }>(
+      "select lot_id from public.sightings order by lot_id",
+    );
+    expect(own).toEqual([{ lot_id: "P4" }, { lot_id: "P9" }]);
+
+    // The leaderboard still counts it whenever it falls in this Toronto week.
+    const { rows: week } = await db.query<{ in_week: boolean }>(
+      `select now() - interval '26 hours' >= date_trunc('week', now() at time zone 'America/Toronto') at time zone 'America/Toronto' as in_week`,
+    );
+    await as("anon");
+    const { rows: board } = await db.query<{ username: string }>(
+      "select username from public.weekly_leaderboard() where username = 'alice_scout'",
+    );
+    expect(board).toHaveLength(week[0]!.in_week ? 1 : 0);
+  });
+
+  it("rejects scout names that impersonate staff or the app", async () => {
+    const carol = "00000000-0000-4000-8000-00000000000c";
+    await as("postgres");
+    await db.query("insert into auth.users (id) values ($1)", [carol]);
+    await as("authenticated", carol);
+    for (const name of [
+      "You",
+      "admin",
+      "UTM",
+      "LotPulse_team",
+      "utm_parking_services",
+      "CampusPolice",
+    ]) {
+      await expect(
+        db.query("insert into public.profiles (id, username) values ($1, $2)", [carol, name]),
+      ).rejects.toThrow(/profiles_username_reserved/);
+    }
+    await expect(
+      db.query("insert into public.profiles (id, username) values ($1, 'utm_commuter')", [carol]),
+    ).resolves.toBeTruthy();
   });
 });

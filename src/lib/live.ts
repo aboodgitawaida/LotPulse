@@ -87,6 +87,9 @@ export function friendlyError(error: unknown): string {
   if (message.includes("cooldown")) return "You reported this lot in the last 15 minutes.";
   if (message.includes("rate_limit")) return "That's a lot of sightings. Try again in a bit.";
   if (message.includes("profiles_username_unique")) return "That scout name is taken.";
+  if (message.includes("profiles_username_reserved")) {
+    return "That name is reserved. Pick a different scout name.";
+  }
   if (message.includes("profiles_username_format")) {
     return "Scout names are 3–20 letters, numbers or underscores.";
   }
@@ -98,6 +101,11 @@ export function friendlyError(error: unknown): string {
 }
 
 const SIGHTING_COLUMNS = "id, lot_id, user_id, created_at";
+/**
+ * Every open tab hears every sighting, so leaderboard refreshes after realtime
+ * events are batched and spread out instead of all hitting the API at once.
+ */
+const BOARD_REFRESH_MS = 3_000;
 
 export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity | null {
   const [loading, setLoading] = useState(true);
@@ -132,7 +140,7 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
 
   const refreshBoard = useCallback(async () => {
     if (!client) return;
-    const { data } = await client.from("weekly_leaderboard").select("user_id, username, points");
+    const { data } = await client.rpc("weekly_leaderboard");
     if (Array.isArray(data)) {
       setBoard(data.map(parseBoardEntry).filter((row): row is BoardEntry => row !== null));
     }
@@ -141,6 +149,17 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
   useEffect(() => {
     if (!client) return;
     let cancelled = false;
+    let boardTimer: number | undefined;
+    const scheduleBoard = () => {
+      if (boardTimer !== undefined) return;
+      boardTimer = window.setTimeout(
+        () => {
+          boardTimer = undefined;
+          if (!cancelled) void refreshBoard();
+        },
+        BOARD_REFRESH_MS * (0.5 + Math.random()),
+      );
+    };
 
     const load = async () => {
       const { data: auth } = await client.auth.getSession();
@@ -186,9 +205,20 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
       setLoading(false);
     };
 
-    void load().catch(() => {
-      if (!cancelled) setLoading(false);
-    });
+    const reload = () =>
+      void load().catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+    reload();
+
+    // Phones suspend background tabs and realtime misses events while asleep,
+    // so catch up whenever the app comes back into view.
+    let hiddenAt = 0;
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") hiddenAt = Date.now();
+      else if (hiddenAt && Date.now() - hiddenAt > 30_000) reload();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
 
     const channel = client
       .channel("public:sightings")
@@ -203,7 +233,7 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
           const finish = (scout: string) => {
             const sighting = parseSighting(row, scout);
             if (sighting && !cancelled) addSighting(sighting);
-            void refreshBoard();
+            scheduleBoard();
           };
           if (known) {
             finish(known);
@@ -227,13 +257,15 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
         (payload) => {
           const old: unknown = payload.old;
           if (isRecord(old) && typeof old["id"] === "string") removeSighting(old["id"]);
-          void refreshBoard();
+          scheduleBoard();
         },
       )
       .subscribe();
 
     return () => {
       cancelled = true;
+      window.clearTimeout(boardTimer);
+      document.removeEventListener("visibilitychange", onVisibility);
       void client.removeChannel(channel);
     };
   }, [client, addSighting, removeSighting, refreshBoard]);

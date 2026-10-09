@@ -57,6 +57,7 @@ function fakeSupabase(respond: (query: Query) => Result) {
   const channel = { on: () => channel, subscribe: () => channel };
   const client = {
     from,
+    rpc: (fn: string) => from(fn),
     channel: () => channel,
     removeChannel: async () => "ok",
     auth: {

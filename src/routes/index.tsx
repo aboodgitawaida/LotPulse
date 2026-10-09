@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { ActivityFeed } from "@/components/activity-feed";
@@ -187,7 +187,8 @@ function Dashboard() {
                   lot={lot}
                   status={status}
                   now={store.now}
-                  onPay={() => setDialog("pay")}
+                  live={live}
+                  {...(!live && { onPay: () => setDialog("pay") })}
                 />
                 <ReportButton
                   lot={lot}
@@ -230,6 +231,7 @@ function Dashboard() {
               payments={store.payments}
               badges={store.badges}
               leaderboard={store.leaderboard}
+              showJit={!live}
               {...(!live && {
                 onReset: () => {
                   store.reset();
@@ -249,7 +251,11 @@ function Dashboard() {
               <BrandMark className="footer-mark" /> LotPulse · for students, by students
             </span>
             <span>
-              Simulated demo. Not affiliated with UTM. Always follow posted parking rules.
+              {live
+                ? "Scout reports are crowd-sourced; forecasts are simulated."
+                : "Simulated demo."}{" "}
+              Not affiliated with UTM. Always follow posted parking rules.{" "}
+              <Link to="/privacy">Privacy</Link>
             </span>
           </div>
         </footer>

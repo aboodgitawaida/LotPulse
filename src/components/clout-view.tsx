@@ -21,6 +21,8 @@ interface CloutViewProps {
   leaderboard: LeaderboardRow[];
   /** Demo mode only: wipe simulated progress. */
   onReset?: () => void;
+  /** Demo mode only: show the simulated JIT payment stat and badge. */
+  showJit?: boolean;
 }
 
 export function CloutView({
@@ -31,7 +33,9 @@ export function CloutView({
   badges,
   leaderboard,
   onReset,
+  showJit = true,
 }: CloutViewProps) {
+  const badgeList = showJit ? BADGES : BADGES.filter((badge) => badge.id !== "just-in-time");
   const scouts = Math.max(leaderboard.length, rank);
   const { current, next } = tierFor(points);
   const progress = next ? ((points - current.min) / (next.min - current.min)) * 100 : 100;
@@ -80,10 +84,12 @@ export function CloutView({
               {lotsCovered}/{LOTS.length}
             </dd>
           </div>
-          <div>
-            <dt>JIT sessions</dt>
-            <dd>{payments.length}</dd>
-          </div>
+          {showJit && (
+            <div>
+              <dt>JIT sessions</dt>
+              <dd>{payments.length}</dd>
+            </div>
+          )}
         </dl>
       </section>
 
@@ -93,11 +99,11 @@ export function CloutView({
             <Award aria-hidden /> Badges
           </h2>
           <span className="card-meta">
-            {badges.size}/{BADGES.length} earned
+            {badgeList.filter((badge) => badges.has(badge.id)).length}/{badgeList.length} earned
           </span>
         </header>
         <ul className="badge-grid">
-          {BADGES.map((badge) => {
+          {badgeList.map((badge) => {
             const earned = badges.has(badge.id);
             return (
               <li key={badge.id} className="badge" data-earned={earned}>

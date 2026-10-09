@@ -14,22 +14,32 @@ import appCss from "../styles.css?url";
 const SITE_TITLE = "LotPulse · UTM Parking Radar";
 const SITE_DESCRIPTION =
   "Predictive parking radar for UTM students. Lot-by-lot patrol forecasts and student scout reports.";
+// Link previews need absolute URLs.
+const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "").replace(/\/$/, "");
+const OG_IMAGE = `${SITE_URL}/og.png`;
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { name: "theme-color", content: "#07080c" },
+      { name: "theme-color", content: "#0b0d12" },
       { name: "color-scheme", content: "dark" },
       { title: SITE_TITLE },
       { name: "description", content: SITE_DESCRIPTION },
       { property: "og:title", content: SITE_TITLE },
       { property: "og:description", content: SITE_DESCRIPTION },
       { property: "og:type", content: "website" },
-      { property: "og:image", content: "/og.png" },
+      { property: "og:site_name", content: "LotPulse" },
+      ...(SITE_URL ? [{ property: "og:url", content: `${SITE_URL}/` }] : []),
+      { property: "og:image", content: OG_IMAGE },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: "LotPulse, the UTM parking radar" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:image", content: "/og.png" },
+      { name: "twitter:title", content: SITE_TITLE },
+      { name: "twitter:description", content: SITE_DESCRIPTION },
+      { name: "twitter:image", content: OG_IMAGE },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
     ],
