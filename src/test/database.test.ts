@@ -7,6 +7,8 @@ import path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { buildSetupSql, SETUP_SQL } from "../../scripts/setup-sql";
+
 const MIGRATIONS = path.resolve(__dirname, "../../supabase/migrations");
 
 const SUPABASE_STUB = `
@@ -241,4 +243,88 @@ describe("reports migration", () => {
       db.query("insert into public.profiles (id, username) values ($1, 'utm_commuter')", [carol]),
     ).resolves.toBeTruthy();
   });
+});
+
+// A snapshot of everything the migrations define, to compare databases.
+const SCHEMA_SNAPSHOT = `
+  select 'column ' || table_name || '.' || column_name || ' ' || data_type || ' ' || is_nullable
+    from information_schema.columns where table_schema = 'public'
+  union all
+  select 'policy ' || tablename || ' ' || policyname || ' ' || cmd || ' ' || coalesce(qual, '')
+    || ' ' || coalesce(with_check, '') from pg_policies where schemaname = 'public'
+  union all
+  select 'constraint ' || conrelid::regclass || ' ' || conname || ' ' || pg_get_constraintdef(oid)
+    from pg_constraint where connamespace = 'public'::regnamespace
+  union all
+  select 'index ' || indexname || ' ' || indexdef from pg_indexes where schemaname = 'public'
+  union all
+  select 'trigger ' || tgrelid::regclass || ' ' || tgname from pg_trigger
+    where not tgisinternal and tgrelid::regclass::text like 'public.%'
+  union all
+  select 'function ' || p.oid::regprocedure || ' ' || md5(p.prosrc) from pg_proc p
+    where p.pronamespace = 'public'::regnamespace
+  union all
+  select 'grant ' || table_name || ' ' || grantee || ' ' || privilege_type
+    from information_schema.role_table_grants
+    where table_schema = 'public' and grantee in ('anon', 'authenticated')
+  union all
+  select 'realtime ' || schemaname || '.' || tablename from pg_publication_tables
+    where pubname = 'supabase_realtime'
+  order by 1
+`;
+
+async function freshDatabase() {
+  const fresh = new PGlite();
+  await fresh.exec(SUPABASE_STUB);
+  return fresh;
+}
+
+async function snapshot(target: PGlite) {
+  const { rows } = await target.query<Record<string, string>>(SCHEMA_SNAPSHOT);
+  return rows.map((row) => Object.values(row)[0]);
+}
+
+async function applied(target: PGlite) {
+  const { rows } = await target.query<{ version: string }>(
+    "select version from supabase_migrations.schema_migrations order by version",
+  );
+  return rows.map((row) => row.version);
+}
+
+describe("supabase/setup.sql", () => {
+  const versions = readdirSync(MIGRATIONS)
+    .sort()
+    .map((file) => file.split("_")[0]);
+
+  it("is up to date with the migrations", () => {
+    expect(readFileSync(SETUP_SQL, "utf8")).toBe(buildSetupSql());
+  });
+
+  it("builds the same database as the migrations, and is safe to run again", async () => {
+    const setup = readFileSync(SETUP_SQL, "utf8");
+    const fresh = await freshDatabase();
+    await fresh.exec(setup);
+    expect(await applied(fresh)).toEqual(versions);
+    const once = await snapshot(fresh);
+    expect(once.length).toBeGreaterThan(30);
+
+    await fresh.exec(setup);
+    expect(await snapshot(fresh)).toEqual(once);
+    expect(await applied(fresh)).toEqual(versions);
+
+    await as("postgres");
+    expect(once).toEqual(await snapshot(db));
+    expect(once).toContain("realtime public.reports");
+  }, 60_000);
+
+  it("finishes a database that was set up by hand part of the way", async () => {
+    const partial = await freshDatabase();
+    const [first] = readdirSync(MIGRATIONS).sort();
+    await partial.exec(readFileSync(path.join(MIGRATIONS, first!), "utf8"));
+
+    await partial.exec(readFileSync(SETUP_SQL, "utf8"));
+    expect(await applied(partial)).toEqual(versions);
+    await as("postgres");
+    expect(await snapshot(partial)).toEqual(await snapshot(db));
+  }, 60_000);
 });
