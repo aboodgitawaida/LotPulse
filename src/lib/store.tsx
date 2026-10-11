@@ -89,7 +89,7 @@ interface StoreValue {
   statusFor: (lot: LotId) => LotStatus;
   select: (lot: LotId) => void;
   /** Rejects with a user-facing message (cooldown, rate limit, taken name…). */
-  report: (lot: LotId, scoutName?: string) => Promise<Report>;
+  report: (lot: LotId, scoutName?: string, captchaToken?: string) => Promise<Report>;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -199,11 +199,11 @@ export function StoreProvider({
       needsName: live !== null && live.scoutName === null,
       statusFor,
       select: setSelected,
-      report: async (lot, scoutName) => {
+      report: async (lot, scoutName, captchaToken) => {
         if (!live) {
           throw new Error("Reporting isn't connected on this site yet, so nothing was sent.");
         }
-        const report = await live.report(lot, scoutName);
+        const report = await live.report(lot, scoutName, captchaToken);
         refreshNow();
         return report;
       },

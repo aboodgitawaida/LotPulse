@@ -5,6 +5,8 @@ import { nitro } from "nitro/vite";
 import { defineConfig, loadEnv } from "vite";
 
 const TILE_HOSTS = "https://tile.openstreetmap.org https://server.arcgisonline.com";
+// Cloudflare Turnstile (the bot check before a scout's first report).
+const TURNSTILE = "https://challenges.cloudflare.com";
 
 export default defineConfig(({ mode }) => {
   const env = { ...loadEnv(mode, process.cwd(), ["VITE_", "NEXT_PUBLIC_"]), ...process.env };
@@ -21,7 +23,8 @@ export default defineConfig(({ mode }) => {
   const csp = [
     "default-src 'self'",
     // TanStack Start inlines its hydration data as scripts.
-    "script-src 'self' 'unsafe-inline'",
+    `script-src 'self' 'unsafe-inline' ${TURNSTILE}`,
+    `frame-src ${TURNSTILE}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: ${TILE_HOSTS}`,
     "font-src 'self'",

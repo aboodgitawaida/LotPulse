@@ -1,6 +1,7 @@
-import { useId, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { BellRing, Crosshair } from "lucide-react";
 
+import { TURNSTILE_SITE_KEY, Turnstile } from "@/components/turnstile";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { POINTS_PER_REPORT } from "@/lib/community";
@@ -90,7 +91,7 @@ interface ReportDialogProps {
   needsName: boolean;
   busy: boolean;
   error: string | null;
-  onConfirm: (scoutName?: string) => void;
+  onConfirm: (scoutName?: string, captchaToken?: string) => void;
 }
 
 export function ReportDialog({
@@ -104,12 +105,31 @@ export function ReportDialog({
   const nameId = useId();
   const [name, setName] = useState("");
   const nameValid = SCOUT_NAME.test(name);
+  // The first live report creates an anonymous account, which needs a captcha
+  // when Turnstile is configured. Tokens are single use, so a failed attempt
+  // gets a fresh challenge.
+  const needsCaptcha = live && needsName && Boolean(TURNSTILE_SITE_KEY);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const wasBusy = useRef(false);
+  useEffect(() => {
+    if (wasBusy.current && !busy && rest.open) {
+      setCaptchaToken(null);
+      setAttempt((n) => n + 1);
+    }
+    wasBusy.current = busy;
+  }, [busy, rest.open]);
   return (
     <ConfirmDialog
       {...rest}
       busy={busy}
-      confirmDisabled={needsName && !nameValid}
-      onConfirm={() => onConfirm(needsName ? name : undefined)}
+      confirmDisabled={(needsName && !nameValid) || (needsCaptcha && !captchaToken)}
+      onConfirm={() =>
+        onConfirm(
+          needsName ? name : undefined,
+          needsCaptcha ? (captchaToken ?? undefined) : undefined,
+        )
+      }
       icon={<Crosshair />}
       title={`Enforcement at ${lot.name}?`}
       description="Confirm the sighting to warn every student watching this lot. It shows up on everyone's screen right away."
@@ -146,6 +166,7 @@ export function ReportDialog({
           </span>
         </div>
       )}
+      {needsCaptcha && <Turnstile key={attempt} onToken={setCaptchaToken} />}
     </ConfirmDialog>
   );
 }

@@ -87,6 +87,17 @@ imagery, so it never needs a key.
 6. **Optional.** `VITE_SITE_URL` sets the absolute URL used in link previews (it defaults to
    Vercel's production domain), and `VITE_CONTACT_EMAIL` adds a data-deletion contact to
    `/privacy`.
+7. **Bot check (Cloudflare Turnstile).** Anonymous accounts are free to create, so without a
+   captcha one script can make thousands and flood the map. In Cloudflare, add a Turnstile widget
+   (Managed mode) for your production hostname, then:
+   - set `VITE_TURNSTILE_SITE_KEY` in Vercel to its **site key** and redeploy. The report dialog
+     then shows the check before a scout's first report;
+   - only once that deploy is live, open Supabase **Authentication → Attack Protection**, enable
+     Captcha protection with Turnstile, paste the **secret key** and save. Saving first would make
+     every first report fail, because the old site sends no captcha token.
+
+   With captcha on, `bun run verify:live` can't sign in (it has no token). Turn captcha off while
+   running it, or skip it.
 
 ## Deploying to Vercel
 

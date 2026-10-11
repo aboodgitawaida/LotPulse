@@ -33,7 +33,7 @@ export interface LiveCommunity {
   /** This scout's sightings since Monday. */
   myReports: LiveReport[];
   leaderboard: LeaderboardRow[];
-  report: (lot: LotId, scoutName?: string) => Promise<LiveReport>;
+  report: (lot: LotId, scoutName?: string, captchaToken?: string) => Promise<LiveReport>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -92,6 +92,7 @@ export function friendlyError(error: unknown): string {
   if (message.includes("profiles_username_format")) {
     return "Scout names are 3–20 letters, numbers or underscores.";
   }
+  if (/captcha/i.test(message)) return "The bot check didn't go through. Please try it again.";
   if (/anonymous sign-ins are disabled/i.test(message)) {
     return "Reporting isn't switched on yet. Anonymous sign-ins are disabled in Supabase.";
   }
@@ -267,12 +268,14 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
   }, [client, addSighting, refreshBoard]);
 
   const report = useCallback(
-    async (lot: LotId, requestedName?: string): Promise<LiveReport> => {
+    async (lot: LotId, requestedName?: string, captchaToken?: string): Promise<LiveReport> => {
       if (!client) throw new Error("Live reporting isn't configured.");
 
       let uid = userIdRef.current;
       if (!uid) {
-        const { data, error } = await client.auth.signInAnonymously();
+        const { data, error } = await client.auth.signInAnonymously(
+          captchaToken ? { options: { captchaToken } } : undefined,
+        );
         if (error || !data.user) throw new Error(friendlyError(error));
         uid = data.user.id;
         userIdRef.current = uid;
