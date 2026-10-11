@@ -59,9 +59,8 @@ function PrivacyPage() {
           tracking cookies.
         </p>
         <p>
-          Your browser keeps your anonymous sign-in, chosen lot, map style and demo progress in
-          local storage. Clearing this site's data forgets them, and you'll get a fresh ID next
-          time.
+          Your browser keeps your anonymous sign-in, chosen lot and map style in local storage.
+          Clearing this site's data forgets them, and you'll get a fresh ID next time.
         </p>
 
         {CONTACT_EMAIL && (

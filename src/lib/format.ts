@@ -1,36 +1,4 @@
-import type { Lot, PeakWindow } from "./lots";
-
-function hourParts(hour: number) {
-  const normalized = ((hour % 24) + 24) % 24;
-  return {
-    value: normalized % 12 === 0 ? 12 : normalized % 12,
-    period: normalized < 12 ? "AM" : "PM",
-  };
-}
-
-/** 13 → "1 PM", 0 → "12 AM". */
-export function formatHour(hour: number): string {
-  const { value, period } = hourParts(hour);
-  return `${value} ${period}`;
-}
-
-/** Peak window as "1–4 PM" or "11 AM–2 PM". */
-export function formatWindow({ start, end }: Pick<PeakWindow, "start" | "end">): string {
-  const from = hourParts(start);
-  const to = hourParts(end);
-  return from.period === to.period
-    ? `${from.value}–${to.value} ${to.period}`
-    : `${from.value} ${from.period}–${to.value} ${to.period}`;
-}
-
-/** 135 → "2h 15m", 45 → "45m", 120 → "2h". */
-export function formatDuration(totalMinutes: number): string {
-  const minutes = Math.max(0, Math.round(totalMinutes));
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  if (hours === 0) return `${rest}m`;
-  return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
-}
+import type { Lot } from "./lots";
 
 /** Relative time for timestamps in the past: "just now", "12 min ago", "3h ago". */
 export function timeAgo(timestamp: number, now: number): string {
@@ -51,8 +19,4 @@ function dollars(amount: number): string {
 export function formatRate({ halfHour, dailyMax }: Lot["rate"]): string {
   const base = `$${halfHour.toFixed(2)} / 30 min`;
   return dailyMax === undefined ? base : `${base} · ${dollars(dailyMax)} daily max`;
-}
-
-export function formatPrice(amount: number): string {
-  return `$${amount.toFixed(2)}`;
 }

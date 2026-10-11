@@ -1,5 +1,5 @@
 // @vitest-environment node
-// Runs the Supabase migration against an in-process Postgres (PGlite) with a
+// Runs every Supabase migration against an in-process Postgres (PGlite) with a
 // minimal stand-in for Supabase's auth schema, then checks the security rules.
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
@@ -41,18 +41,17 @@ async function addScout(id: string, username: string) {
 }
 
 async function report(lot: string) {
-  return db.query<{ id: string }>(
-    "insert into public.sightings (lot_id) values ($1) returning id",
-    [lot],
-  );
+  return db.query<{ id: string }>("insert into public.reports (lot_id) values ($1) returning id", [
+    lot,
+  ]);
 }
 
-/** Insert a sighting in the past, skipping the trigger that stamps now(). */
+/** Insert a report in the past, skipping the trigger that stamps now(). */
 async function backdate(userId: string, lot: string, minutesAgo: number) {
   await as("postgres");
   await db.exec("set session_replication_role = replica;");
   await db.query(
-    "insert into public.sightings (lot_id, user_id, created_at) values ($1, $2, now() - make_interval(mins => $3))",
+    "insert into public.reports (lot_id, reporter_id, created_at) values ($1, $2, now() - make_interval(mins => $3))",
     [lot, userId, minutesAgo],
   );
   await db.exec("set session_replication_role = origin;");
@@ -68,37 +67,42 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await as("postgres");
-  await db.exec("truncate public.sightings, public.profiles, auth.users cascade;");
+  await db.exec("truncate public.reports, public.profiles, auth.users cascade;");
   await addScout(ALICE, "alice_scout");
   await addScout(BOB, "bob");
 });
 
-describe("sightings migration", () => {
-  it("lets a scout post and everyone read, with server-side timestamps", async () => {
+describe("reports migration", () => {
+  it("lets a scout report and everyone read, with server-side timestamps", async () => {
     await as("authenticated", ALICE);
     await report("P9");
 
     await as("anon");
-    const { rows } = await db.query<{ lot_id: string; user_id: string; fresh: boolean }>(
-      "select lot_id, user_id, created_at > now() - interval '1 minute' as fresh from public.sightings",
+    const { rows } = await db.query<{ lot_id: string; reporter_id: string; fresh: boolean }>(
+      "select lot_id, reporter_id, created_at > now() - interval '1 minute' as fresh from public.reports",
     );
-    expect(rows).toEqual([{ lot_id: "P9", user_id: ALICE, fresh: true }]);
+    expect(rows).toEqual([{ lot_id: "P9", reporter_id: ALICE, fresh: true }]);
   });
 
   it("blocks anonymous visitors and impersonation", async () => {
     await as("anon");
     await expect(report("P9")).rejects.toThrow(/permission denied/);
 
-    // Claiming to be Bob just posts as yourself: the trigger stamps auth.uid().
+    // The client may only send the lot: reporter and timestamp are the server's.
     await as("authenticated", ALICE);
-    await db.query("insert into public.sightings (lot_id, user_id) values ('P9', $1)", [BOB]);
-    const { rows } = await db.query<{ user_id: string }>("select user_id from public.sightings");
-    expect(rows).toEqual([{ user_id: ALICE }]);
+    await expect(
+      db.query("insert into public.reports (lot_id, reporter_id) values ('P9', $1)", [BOB]),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      db.query(
+        "insert into public.reports (lot_id, created_at) values ('P9', now() - interval '1 day')",
+      ),
+    ).rejects.toThrow(/permission denied/);
   });
 
   it("rejects unknown lots and bad scout names", async () => {
     await as("authenticated", ALICE);
-    await expect(report("P99")).rejects.toThrow(/sightings_lot_id_known/);
+    await expect(report("P99")).rejects.toThrow(/reports_lot_id_known/);
 
     await as("postgres");
     await db.query("insert into auth.users (id) values ($1)", [
@@ -117,18 +121,22 @@ describe("sightings migration", () => {
     ).rejects.toThrow(/profiles_username_unique/);
   });
 
-  it("enforces a 15-minute cooldown per lot", async () => {
+  it("allows one report per scout per lot every 5 minutes", async () => {
     await as("authenticated", ALICE);
     await report("P4");
     await expect(report("P4")).rejects.toThrow(/cooldown/);
     await expect(report("P8")).resolves.toBeTruthy();
 
-    await backdate(BOB, "IC", 16);
+    // Another scout can still report the same lot.
+    await as("authenticated", BOB);
+    await expect(report("P4")).resolves.toBeTruthy();
+
+    await backdate(BOB, "IC", 6);
     await as("authenticated", BOB);
     await expect(report("IC")).resolves.toBeTruthy();
   });
 
-  it("caps each scout at 6 sightings an hour", async () => {
+  it("caps each scout at 6 reports an hour", async () => {
     for (const [lot, minutes] of [
       ["P9", 50],
       ["P4", 40],
@@ -143,27 +151,34 @@ describe("sightings migration", () => {
     await expect(report("P9")).rejects.toThrow(/rate_limit/);
   });
 
-  it("only allows undoing your own sighting within 2 minutes", async () => {
+  it("never lets the client update or delete reports", async () => {
     await as("authenticated", ALICE);
     const { rows } = await report("P9");
     const id = rows[0]!.id;
 
-    await as("authenticated", BOB);
-    await db.query("delete from public.sightings where id = $1", [id]);
-    await as("authenticated", ALICE);
-    await db.query("delete from public.sightings where id = $1", [id]);
-    await backdate(ALICE, "P4", 5);
-    await as("authenticated", ALICE);
-    await db.query("delete from public.sightings where lot_id = 'P4'");
+    await expect(db.query("delete from public.reports where id = $1", [id])).rejects.toThrow(
+      /permission denied/,
+    );
+    await expect(
+      db.query("update public.reports set lot_id = 'P4' where id = $1", [id]),
+    ).rejects.toThrow(/permission denied/);
 
     await as("anon");
-    const { rows: left } = await db.query<{ lot_id: string }>(
-      "select lot_id from public.sightings",
-    );
-    expect(left).toEqual([{ lot_id: "P4" }]);
+    const { rows: left } = await db.query<{ lot_id: string }>("select lot_id from public.reports");
+    expect(left).toEqual([{ lot_id: "P9" }]);
   });
 
-  it("scores the weekly leaderboard at 25 points per sighting", async () => {
+  it("keeps a report, without its reporter, when the scout's profile is deleted", async () => {
+    await backdate(ALICE, "P9", 1);
+    await as("postgres");
+    await db.query("delete from public.profiles where id = $1", [ALICE]);
+    const { rows } = await db.query<{ reporter_id: string | null }>(
+      "select reporter_id from public.reports",
+    );
+    expect(rows).toEqual([{ reporter_id: null }]);
+  });
+
+  it("scores the weekly leaderboard at 25 points per report", async () => {
     await backdate(ALICE, "P9", 0);
     await backdate(ALICE, "P4", 0);
     await backdate(BOB, "P8", 0);
@@ -178,19 +193,19 @@ describe("sightings migration", () => {
     ]);
   });
 
-  it("hides sightings older than 24 hours, except your own, but still scores them", async () => {
+  it("hides reports older than 24 hours, except your own, but still scores them", async () => {
     await backdate(ALICE, "P9", 26 * 60);
     await backdate(BOB, "P4", 10);
 
     await as("anon");
     const { rows: visible } = await db.query<{ lot_id: string }>(
-      "select lot_id from public.sightings",
+      "select lot_id from public.reports",
     );
     expect(visible).toEqual([{ lot_id: "P4" }]);
 
     await as("authenticated", ALICE);
     const { rows: own } = await db.query<{ lot_id: string }>(
-      "select lot_id from public.sightings order by lot_id",
+      "select lot_id from public.reports order by lot_id",
     );
     expect(own).toEqual([{ lot_id: "P4" }, { lot_id: "P9" }]);
 

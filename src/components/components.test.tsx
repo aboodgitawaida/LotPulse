@@ -5,9 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import { CloutView } from "@/components/clout-view";
 import { FocusLot } from "@/components/focus-lot";
 import { Leaderboard } from "@/components/leaderboard";
+import { ReportDialog } from "@/components/lot-dialogs";
 import { LotSwitcher } from "@/components/lot-switcher";
 import { ReportButton } from "@/components/report-button";
-import { OTHER_SCOUTS, rankLeaderboard } from "@/lib/community";
+import { rankLeaderboard } from "@/lib/community";
 import { getLot, type LotId } from "@/lib/lots";
 import type { LotStatus } from "@/lib/store";
 
@@ -15,17 +16,21 @@ const now = new Date("2026-10-05T12:20:00");
 
 const board = (points: number) =>
   rankLeaderboard(
-    OTHER_SCOUTS.map((scout) => ({ ...scout, you: false })),
+    [
+      { name: "deck_runner", points: 450 },
+      { name: "night_owl", points: 380 },
+      { name: "p9_regular", points: 325 },
+      { name: "early_bird", points: 100 },
+    ].map((scout) => ({ ...scout, you: false })),
     { name: "You", points },
   );
 
 const status = (overrides: Partial<LotStatus> = {}): LotStatus => ({
-  threat: 50,
-  tone: "medium",
+  recentReports: 0,
+  tone: "low",
   lastSighting: null,
   spotted: false,
   cooldownMinutes: 0,
-  session: null,
   ...overrides,
 });
 
@@ -41,32 +46,33 @@ describe("LotSwitcher", () => {
 });
 
 describe("FocusLot", () => {
-  it("shows clear status, threat and the countdown to the next peak", () => {
-    render(<FocusLot lot={getLot("P9")} status={status()} now={now} onPay={() => {}} />);
-    expect(screen.getByText("Clear")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Patrol probability 50 percent" })).toBeInTheDocument();
-    expect(screen.getByText("Next peak in 40m")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Pay 30 min/ })).toBeInTheDocument();
+  it("shows a lot with no recent reports as clear", () => {
+    render(<FocusLot lot={getLot("P9")} status={status()} now={now} />);
+    expect(screen.getAllByText("Clear")).toHaveLength(2);
+    expect(screen.getByRole("img", { name: "0 reports in the last 2 hours" })).toBeInTheDocument();
+    expect(screen.getAllByText("No recent reports")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /Pay/ })).not.toBeInTheDocument();
   });
 
-  it("shows a spotted lot and the remaining paid session", () => {
+  it("shows a spotted lot with its latest report", () => {
     const at = now.getTime();
     render(
       <FocusLot
         lot={getLot("P9")}
         status={status({
           spotted: true,
-          tone: "high",
+          recentReports: 1,
+          tone: "medium",
           lastSighting: { id: "1", lot: "P9", scout: "You", at, mine: true },
-          session: { lot: "P9", at, until: at + 30 * 60_000 },
         })}
         now={now}
-        onPay={() => {}}
       />,
     );
     expect(screen.getByText("Spotted")).toBeInTheDocument();
+    expect(screen.getByText("Caution")).toBeInTheDocument();
+    expect(screen.getByText("1 report in the last 2 hours")).toBeInTheDocument();
     expect(screen.getByText("by you")).toBeInTheDocument();
-    expect(screen.getByText("30m left")).toBeInTheDocument();
+    expect(screen.getByText("just now")).toBeInTheDocument();
   });
 });
 
@@ -94,15 +100,32 @@ describe("CloutView", () => {
         points={145}
         rank={8}
         reports={[{ id: "r", lot: "P9", at: now.getTime() }]}
-        payments={[]}
         badges={new Set(["first-signal"])}
         leaderboard={board(145)}
-        onReset={() => {}}
       />,
     );
     expect(screen.getByText("5 pts to Scout")).toBeInTheDocument();
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "97");
     expect(screen.getByText("First signal").closest("li")).toHaveAttribute("data-earned", "true");
     expect(screen.getByText("Hat trick").closest("li")).toHaveAttribute("data-earned", "false");
+  });
+});
+
+describe("ReportDialog", () => {
+  it("shows why a report failed next to the button", () => {
+    render(
+      <ReportDialog
+        lot={getLot("P9")}
+        open
+        onOpenChange={() => {}}
+        live
+        needsName={false}
+        busy={false}
+        error="You already reported this lot in the last 5 minutes."
+        onConfirm={() => {}}
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(/last 5 minutes/);
+    expect(screen.getByRole("button", { name: /Send alert/ })).toBeEnabled();
   });
 });

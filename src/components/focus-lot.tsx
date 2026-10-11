@@ -1,58 +1,19 @@
-import { CircleParking, Clock3, CreditCard, Radio, Sparkles, TimerReset } from "lucide-react";
+import { Activity, CircleParking, Clock3, Radio } from "lucide-react";
 
 import { ThreatGauge } from "@/components/threat-gauge";
-import { formatDuration, formatRate, formatWindow, timeAgo } from "@/lib/format";
-import { TONE_LABEL, patrolOutlook, type Lot } from "@/lib/lots";
+import { formatRate, timeAgo } from "@/lib/format";
+import { TONE_LABEL, type Lot } from "@/lib/lots";
 import type { LotStatus } from "@/lib/store";
 
 interface FocusLotProps {
   lot: Lot;
   status: LotStatus;
   now: Date;
-  /** Simulated JIT payment. Omitted in live mode, where it could pass for a real permit. */
-  onPay?: () => void;
   live?: boolean;
 }
 
-function OutlookText({ lot, now }: { lot: Lot; now: Date }) {
-  const outlook = patrolOutlook(lot, now);
-  switch (outlook.kind) {
-    case "active":
-      return (
-        <>
-          <strong>Peak patrol window now</strong>
-          <span>
-            {formatWindow(outlook.window)} · ends in {formatDuration(outlook.minutesLeft)}
-          </span>
-        </>
-      );
-    case "upcoming":
-      return (
-        <>
-          <strong>Next peak in {formatDuration(outlook.minutesUntil)}</strong>
-          <span>Expected {formatWindow(outlook.window)}</span>
-        </>
-      );
-    case "passed":
-      return (
-        <>
-          <strong>Today's peak has passed</strong>
-          <span>It was {formatWindow(outlook.window)}</span>
-        </>
-      );
-    case "quiet":
-      return (
-        <>
-          <strong>Quiet day</strong>
-          <span>No patrol peak expected</span>
-        </>
-      );
-  }
-}
-
-export function FocusLot({ lot, status, now, onPay, live = false }: FocusLotProps) {
-  const { lastSighting, session } = status;
-  const sessionMinutes = session ? Math.ceil((session.until - now.getTime()) / 60_000) : 0;
+export function FocusLot({ lot, status, now, live = false }: FocusLotProps) {
+  const { lastSighting } = status;
 
   return (
     <section className="card focus-lot" aria-labelledby="focus-lot-title" data-tone={status.tone}>
@@ -90,23 +51,28 @@ export function FocusLot({ lot, status, now, onPay, live = false }: FocusLotProp
                 </span>
               </>
             ) : (
-              "No sightings yet today"
+              "No recent reports"
             )}
           </p>
         </div>
 
         <div className="metric metric-threat">
           <span className="eyebrow">
-            <Sparkles aria-hidden /> Patrol probability
+            <Activity aria-hidden /> Reports · last 2h
           </span>
           <div className="threat-readout">
-            <ThreatGauge value={status.threat} tone={status.tone} />
+            <ThreatGauge count={status.recentReports} tone={status.tone} />
             <div className="threat-copy">
               <span className="tone-pill" data-tone={status.tone}>
                 {TONE_LABEL[status.tone]}
               </span>
               <p className="outlook">
-                <OutlookText lot={lot} now={now} />
+                <strong>
+                  {status.recentReports === 0
+                    ? "No recent reports"
+                    : `${status.recentReports} ${status.recentReports === 1 ? "report" : "reports"} in the last 2 hours`}
+                </strong>
+                <span>0 clear · 1 caution · 2+ high risk</span>
               </p>
             </div>
           </div>
@@ -114,30 +80,9 @@ export function FocusLot({ lot, status, now, onPay, live = false }: FocusLotProp
       </div>
 
       <footer className="focus-lot-footer">
-        {onPay && (
-          <button
-            type="button"
-            className="jit-button"
-            onClick={onPay}
-            data-active={session !== null}
-          >
-            {session ? <TimerReset aria-hidden /> : <CreditCard aria-hidden />}
-            {session ? (
-              <span>
-                Demo session · <strong>{formatDuration(sessionMinutes)} left</strong>
-              </span>
-            ) : (
-              <span>
-                Pay 30 min <span className="jit-tag">Demo</span>
-              </span>
-            )}
-          </button>
-        )}
         <span className="focus-lot-updated">
           <Clock3 aria-hidden />{" "}
-          {live
-            ? "Live scout reports · simulated forecast"
-            : "Simulated · student signals + forecast"}
+          {live ? "Live scout reports" : "Not connected · no reports to show"}
         </span>
       </footer>
     </section>

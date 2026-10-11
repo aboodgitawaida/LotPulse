@@ -1,6 +1,6 @@
-// Live community data from Supabase: shared sightings, the weekly leaderboard
-// and this scout's own reports. Used instead of the demo data whenever
-// Supabase credentials are configured (see src/lib/supabase.ts).
+// Live community data from Supabase: everyone's recent reports (kept current
+// over Realtime), the weekly leaderboard and this scout's own reports. Needs
+// the Supabase credentials in src/lib/supabase.ts.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -34,7 +34,6 @@ export interface LiveCommunity {
   myReports: LiveReport[];
   leaderboard: LeaderboardRow[];
   report: (lot: LotId, scoutName?: string) => Promise<LiveReport>;
-  undoReport: (id: string) => Promise<void>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -49,13 +48,13 @@ export function weekStart(now: Date): Date {
   return start;
 }
 
-/** Validate a sightings row (optionally with an embedded profile) from the API. */
+/** Validate a reports row (optionally with an embedded profile) from the API. */
 export function parseSighting(row: unknown, fallbackScout = "scout"): LiveSighting | null {
   if (!isRecord(row)) return null;
-  const { id, lot_id: lot, user_id: userId, created_at: createdAt, profiles } = row;
-  if (typeof id !== "string" || typeof userId !== "string" || typeof createdAt !== "string") {
-    return null;
-  }
+  const { id, lot_id: lot, reporter_id: reporterId, created_at: createdAt, profiles } = row;
+  if (typeof id !== "string" || typeof createdAt !== "string") return null;
+  // A report outlives its scout's deleted profile, without a reporter.
+  const userId = typeof reporterId === "string" ? reporterId : "";
   if (!isLotId(lot)) return null;
   const at = Date.parse(createdAt);
   if (Number.isNaN(at)) return null;
@@ -84,8 +83,8 @@ function parseBoardEntry(row: unknown): BoardEntry | null {
 /** Turn database and auth errors into something a student can act on. */
 export function friendlyError(error: unknown): string {
   const message = isRecord(error) && typeof error["message"] === "string" ? error["message"] : "";
-  if (message.includes("cooldown")) return "You reported this lot in the last 15 minutes.";
-  if (message.includes("rate_limit")) return "That's a lot of sightings. Try again in a bit.";
+  if (message.includes("cooldown")) return "You already reported this lot in the last 5 minutes.";
+  if (message.includes("rate_limit")) return "That's a lot of reports. Try again in a bit.";
   if (message.includes("profiles_username_unique")) return "That scout name is taken.";
   if (message.includes("profiles_username_reserved")) {
     return "That name is reserved. Pick a different scout name.";
@@ -100,7 +99,7 @@ export function friendlyError(error: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
-const SIGHTING_COLUMNS = "id, lot_id, user_id, created_at";
+const REPORT_COLUMNS = "id, lot_id, reporter_id, created_at";
 /**
  * Every open tab hears every sighting, so leaderboard refreshes after realtime
  * events are batched and spread out instead of all hitting the API at once.
@@ -118,7 +117,7 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
   const userIdRef = useRef<string | null>(null);
 
   const addSighting = useCallback((sighting: LiveSighting) => {
-    names.current.set(sighting.userId, sighting.scout);
+    if (sighting.userId) names.current.set(sighting.userId, sighting.scout);
     setSightings((previous) =>
       previous.some((s) => s.id === sighting.id)
         ? previous
@@ -131,11 +130,6 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
           : [...previous, { id: sighting.id, lot: sighting.lot, at: sighting.at }],
       );
     }
-  }, []);
-
-  const removeSighting = useCallback((id: string) => {
-    setSightings((previous) => previous.filter((s) => s.id !== id));
-    setMyReports((previous) => previous.filter((r) => r.id !== id));
   }, []);
 
   const refreshBoard = useCallback(async () => {
@@ -167,17 +161,17 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
       const since = new Date(Date.now() - FEED_WINDOW_MS).toISOString();
       const [feed, profile, mine] = await Promise.all([
         client
-          .from("sightings")
-          .select(`${SIGHTING_COLUMNS}, profiles(username)`)
+          .from("reports")
+          .select(`${REPORT_COLUMNS}, profiles(username)`)
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(200),
         uid ? client.from("profiles").select("username").eq("id", uid).maybeSingle() : null,
         uid
           ? client
-              .from("sightings")
-              .select(SIGHTING_COLUMNS)
-              .eq("user_id", uid)
+              .from("reports")
+              .select(REPORT_COLUMNS)
+              .eq("reporter_id", uid)
               .gte("created_at", weekStart(new Date()).toISOString())
           : null,
         refreshBoard(),
@@ -194,8 +188,12 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
       const parsed = (feed.data ?? [])
         .map((row: unknown) => parseSighting(row))
         .filter((s: LiveSighting | null): s is LiveSighting => s !== null);
-      for (const s of parsed) names.current.set(s.userId, s.scout);
-      setSightings(parsed);
+      for (const s of parsed) if (s.userId) names.current.set(s.userId, s.scout);
+      // Keep anything Realtime delivered while this was loading.
+      setSightings((previous) => {
+        const ids = new Set(parsed.map((s) => s.id));
+        return [...parsed, ...previous.filter((s) => !ids.has(s.id))].sort((a, b) => b.at - a.at);
+      });
       setMyReports(
         (mine?.data ?? [])
           .map((row: unknown) => parseSighting(row))
@@ -220,23 +218,25 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
     };
     document.addEventListener("visibilitychange", onVisibility);
 
+    // Every open device hears every new report within a second or two.
+    let subscribedBefore = false;
     const channel = client
-      .channel("public:sightings")
+      .channel("public:reports")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "sightings" },
+        { event: "INSERT", schema: "public", table: "reports" },
         (payload) => {
           const row: unknown = payload.new;
           const userIdOfRow =
-            isRecord(row) && typeof row["user_id"] === "string" ? row["user_id"] : "";
+            isRecord(row) && typeof row["reporter_id"] === "string" ? row["reporter_id"] : "";
           const known = names.current.get(userIdOfRow);
           const finish = (scout: string) => {
             const sighting = parseSighting(row, scout);
             if (sighting && !cancelled) addSighting(sighting);
             scheduleBoard();
           };
-          if (known) {
-            finish(known);
+          if (known || !userIdOfRow) {
+            finish(known ?? "scout");
             return;
           }
           void client
@@ -251,16 +251,12 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
             );
         },
       )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "sightings" },
-        (payload) => {
-          const old: unknown = payload.old;
-          if (isRecord(old) && typeof old["id"] === "string") removeSighting(old["id"]);
-          scheduleBoard();
-        },
-      )
-      .subscribe();
+      .subscribe((status) => {
+        // After a dropped connection, fetch whatever was missed meanwhile.
+        if (status !== "SUBSCRIBED") return;
+        if (subscribedBefore) reload();
+        subscribedBefore = true;
+      });
 
     return () => {
       cancelled = true;
@@ -268,7 +264,7 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
       document.removeEventListener("visibilitychange", onVisibility);
       void client.removeChannel(channel);
     };
-  }, [client, addSighting, removeSighting, refreshBoard]);
+  }, [client, addSighting, refreshBoard]);
 
   const report = useCallback(
     async (lot: LotId, requestedName?: string): Promise<LiveReport> => {
@@ -294,9 +290,9 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
       }
 
       const { data, error } = await client
-        .from("sightings")
+        .from("reports")
         .insert({ lot_id: lot })
-        .select(SIGHTING_COLUMNS)
+        .select(REPORT_COLUMNS)
         .single();
       if (error) throw new Error(friendlyError(error));
       const sighting = parseSighting(data, name);
@@ -306,22 +302,6 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
       return { id: sighting.id, lot: sighting.lot, at: sighting.at };
     },
     [client, scoutName, addSighting, refreshBoard],
-  );
-
-  const undoReport = useCallback(
-    async (id: string) => {
-      if (!client) return;
-      // RLS only lets you delete your own sighting within 2 minutes; outside
-      // that window the delete quietly matches nothing.
-      const { data, error } = await client.from("sightings").delete().eq("id", id).select("id");
-      if (error) throw new Error(friendlyError(error));
-      if (!Array.isArray(data) || data.length === 0) {
-        throw new Error("Too late to undo. Sightings can be undone for 2 minutes.");
-      }
-      removeSighting(id);
-      void refreshBoard();
-    },
-    [client, removeSighting, refreshBoard],
   );
 
   const leaderboard = useMemo(
@@ -342,9 +322,7 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
 
   return useMemo(
     () =>
-      client
-        ? { loading, userId, scoutName, sightings, myReports, leaderboard, report, undoReport }
-        : null,
-    [client, loading, userId, scoutName, sightings, myReports, leaderboard, report, undoReport],
+      client ? { loading, userId, scoutName, sightings, myReports, leaderboard, report } : null,
+    [client, loading, userId, scoutName, sightings, myReports, leaderboard, report],
   );
 }

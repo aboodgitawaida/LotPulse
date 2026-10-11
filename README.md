@@ -1,19 +1,16 @@
 # LotPulse
 
-A predictive parking radar for students at the **University of Toronto Mississauga (UTM)**.
+Live parking enforcement reports for students at the **University of Toronto Mississauga (UTM)**.
 
 LotPulse shows, for every campus lot:
 
-- **Live status**: whether a scout has recently spotted parking enforcement.
-- **Threat level**: a predicted probability of a patrol right now.
-- **Hour-by-hour forecast**: when patrols are most likely today, with a countdown to the next peak.
+- **Last sighting**: when a student last reported enforcement there, and who (by scout name).
+- **Risk level**: how many reports the lot got in the last 2 hours.
 - **One-tap reporting**: spot an enforcer, warn campus, earn clout.
-- **Clout System**: a weekly scout leaderboard, streaks and badges.
+- **Clout system**: a weekly scout leaderboard and badges.
 
-> **What's real.** With Supabase configured, sightings, clout and the weekly leaderboard are
-> shared live between students. Patrol forecasts are simulated, and the simulated JIT payment
-> preview only appears in demo mode, so nobody mistakes it for a real permit. LotPulse isn't
-> affiliated with UTM and doesn't take payments. For real parking, use UTM's official services.
+Everything shown comes from real student reports. Reports are crowd-sourced and unverified.
+LotPulse isn't affiliated with UTM. For real parking, use UTM's official services.
 
 ## Getting started
 
@@ -32,30 +29,57 @@ bun run dev        # http://localhost:3000
 | `bun run check`  | Typecheck, lint and run the tests    |
 | `bun run format` | Format everything with Prettier      |
 
-Without any environment variables the app runs in **demo mode** with simulated sightings. The
-campus map uses [Leaflet](https://leafletjs.com) with free OpenStreetMap tiles and Esri satellite
+Without the Supabase environment variables the app runs but is **not connected**: it shows no
+reports and won't send any. The campus map uses [Leaflet](https://leafletjs.com) with free OpenStreetMap tiles and Esri satellite
 imagery, so it never needs a key.
 
-## Live sightings (Supabase)
+## How live reports work
 
-1. **Database.** The schema is in `supabase/migrations/`. If the Supabase GitHub integration is
-   connected with "Deploy to production" on, merging to `main` applies it. Otherwise paste the
-   migration into the Supabase **SQL Editor** and run it once.
+1. **Reporting.** "Spotted enforcement at P9" inserts a row into the Supabase `reports` table
+   (`id`, `lot_id`, `created_at`, `reporter_id`). The first time, the browser signs in with
+   **Supabase anonymous auth** (no email or password) and the student picks a public scout name.
+   On success the dialog closes and a confirmation appears; on failure the dialog stays open and
+   says why (no connection, 5-minute cooldown, name taken…).
+2. **Live updates.** Every open page subscribes to **Supabase Realtime** inserts on `reports`.
+   A new report lands on every device within a second or two, with no refresh, updating the map
+   pins, lot cards, "Last sighting" and the feed. Phones that were asleep or lost their connection
+   refetch on wake and on reconnect.
+3. **What the numbers mean.**
+   - _Last sighting X min ago_: the newest report for that lot (from the last 24 hours), or
+     "No recent reports".
+   - _Risk_: reports for that lot in the last **2 hours**. **0 = clear** (green), **1 = caution**
+     (amber), **2 or more = high risk** (red). That's the whole rule (`riskFor` in
+     `src/lib/lots.ts`).
+   - _Clout_: **+25 per report**, counted by the database from your reports since Monday
+     (`weekly_leaderboard()`), so nobody can edit their own points.
+4. **Rules the database enforces** (`supabase/migrations/`, tested in
+   `src/test/database.test.ts`):
+   - Anyone can read reports from the last 24 hours (older ones only by their reporter).
+   - A signed-in user can only insert their own report: the client sends just the `lot_id`, and the
+     `guard_report` trigger sets `reporter_id` to the caller and `created_at` to server time.
+   - No updates or deletes from the client.
+   - One report per user per lot every **5 minutes**, and at most 6 an hour.
+
+### Setting it up
+
+1. **Database.** Apply the migrations in `supabase/migrations/` in order. If the Supabase GitHub
+   integration is connected with "Deploy to production" on, merging to `main` does it. Otherwise
+   paste each file you haven't run yet into the Supabase **SQL Editor** and run it, oldest first.
 2. **Anonymous sign-in.** In Supabase, open **Authentication → Sign In / Providers** and turn on
-   **Allow anonymous sign-ins**. Students pick a public scout name with their first report.
-3. **Keys.** In Vercel (**Project → Settings → Environment Variables**) add
-   `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (the anon / publishable key, which is
-   safe to expose), then redeploy. For local development copy `.env.example` to `.env`.
-4. **Optional.** `VITE_SITE_URL` sets the absolute URL used in link previews (it defaults to
+   **Allow anonymous sign-ins**.
+3. **Realtime.** The migrations add `reports` to the `supabase_realtime` publication. To check,
+   open **Database → Publications → supabase_realtime** and make sure `reports` is ticked.
+4. **Keys.** In Vercel (**Project → Settings → Environment Variables**) add, for Production and
+   Preview:
+   - `VITE_SUPABASE_URL`: your project URL, e.g. `https://abcd1234.supabase.co`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`: the publishable (`sb_publishable_…`) or legacy anon key
+
+   Then **redeploy**: Vite bakes these into the build, so existing deployments won't pick them up.
+   For local development copy `.env.example` to `.env`.
+
+5. **Optional.** `VITE_SITE_URL` sets the absolute URL used in link previews (it defaults to
    Vercel's production domain), and `VITE_CONTACT_EMAIL` adds a data-deletion contact to
    `/privacy`.
-
-The database enforces the rules itself: anyone can read sightings, only signed-in scouts can post
-as themselves, timestamps are set by the server, each scout can report a lot once per 15 minutes
-and 6 times an hour, and a sighting can be undone for 2 minutes. Sightings older than 24 hours are
-hidden from everyone but their scout (the weekly leaderboard is a function that only returns
-totals), and scout names that pose as staff or the app are rejected. `src/test/database.test.ts` checks
-all of this against a real Postgres (PGlite).
 
 ## Deploying to Vercel
 
@@ -74,11 +98,11 @@ Every branch gets its own preview URL, and `main` deploys to production.
 ```
 src/
   routes/          File-based routes (__root.tsx is the HTML shell, index.tsx the dashboard)
-  components/      Dashboard UI (focus lot, forecast, map, leaderboard, dialogs…)
+  components/      Dashboard UI (focus lot, map, feed, leaderboard, dialogs…)
   components/ui/   Low-level primitives (button, dialog, toaster)
-  lib/lots.ts      Single source of truth for lots, positions and simulated forecasts
-  lib/store.tsx    App state: live (Supabase) or demo, plus local lot selection and sessions
-  lib/live.ts      Supabase data: live feed, leaderboard, sign-in, reporting
+  lib/lots.ts      Single source of truth for lots, positions and the risk rule
+  lib/store.tsx    App state: per-lot status from live reports, plus local lot selection
+  lib/live.ts      Supabase data: Realtime feed, leaderboard, anonymous sign-in, reporting
   styles.css       Design tokens and component styles
 supabase/
   migrations/      Database schema, row level security and guards

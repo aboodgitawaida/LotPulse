@@ -1,7 +1,7 @@
 {
   "name": "LotPulse · UTM Parking Radar",
   "short_name": "LotPulse",
-  "description": "Predictive parking radar for UTM students.",
+  "description": "Live parking enforcement reports from UTM students.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b0d12",

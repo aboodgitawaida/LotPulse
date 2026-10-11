@@ -64,7 +64,7 @@
     "vitest": "^4.1.10"
   },
   "version": "0.1.0",
-  "description": "Predictive parking radar for University of Toronto Mississauga students (demo).",
+  "description": "Live, student-reported parking enforcement sightings for University of Toronto Mississauga.",
   "engines": {
     "node": ">=20.19"
   }

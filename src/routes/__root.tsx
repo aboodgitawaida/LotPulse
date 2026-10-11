@@ -13,7 +13,7 @@ import appCss from "../styles.css?url";
 
 const SITE_TITLE = "LotPulse · UTM Parking Radar";
 const SITE_DESCRIPTION =
-  "Predictive parking radar for UTM students. Lot-by-lot patrol forecasts and student scout reports.";
+  "Live parking enforcement reports from UTM students. See where enforcement was last spotted, lot by lot.";
 // Link previews need absolute URLs.
 const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "").replace(/\/$/, "");
 const OG_IMAGE = `${SITE_URL}/og.png`;

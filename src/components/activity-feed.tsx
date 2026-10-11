@@ -28,12 +28,12 @@ export function ActivityFeed({
           <Activity aria-hidden /> Recent sightings
         </h2>
         <span className="live-chip" data-live={live}>
-          <span className="status-dot" aria-hidden /> {live ? "Live" : "Demo feed"}
+          <span className="status-dot" aria-hidden /> {live ? "Live" : "Not connected"}
         </span>
       </header>
       {sightings.length === 0 && (
         <p className="card-empty">
-          {loading ? "Loading sightings…" : "No sightings in the last 24 hours. Quiet day so far."}
+          {loading ? "Loading reports…" : "No reports in the last 24 hours. Quiet day so far."}
         </p>
       )}
       <ol className="feed-list">

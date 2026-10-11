@@ -10,10 +10,9 @@ import { CloutView } from "@/components/clout-view";
 import { FocusLot } from "@/components/focus-lot";
 import { Hero } from "@/components/hero";
 import { Leaderboard } from "@/components/leaderboard";
-import { PaymentDialog, ReportDialog } from "@/components/lot-dialogs";
+import { ReportDialog } from "@/components/lot-dialogs";
 import { LotSwitcher } from "@/components/lot-switcher";
 import { ReportButton } from "@/components/report-button";
-import { ThreatForecast } from "@/components/threat-forecast";
 import { Ticker } from "@/components/ticker";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
@@ -57,8 +56,9 @@ function Dashboard() {
   const view: View = search.view ?? "radar";
   const navigate = useNavigate({ from: "/" });
   const store = useStore();
-  const [dialog, setDialog] = useState<"report" | "pay" | "map" | null>(null);
+  const [dialog, setDialog] = useState<"report" | "map" | null>(null);
   const [sending, setSending] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
   const live = store.mode === "live";
 
   const lot = getLot(store.selected);
@@ -81,49 +81,32 @@ function Dashboard() {
 
   const confirmReport = async (scoutName?: string) => {
     setSending(true);
+    setReportError(null);
     try {
-      const report = await store.report(lot.id, scoutName);
+      await store.report(lot.id, scoutName);
       setDialog(null);
-      toast.success(`Alert sent for ${lot.name}`, {
-        description: `+${POINTS_PER_REPORT} clout. Thanks for looking out.`,
-        duration: 8000,
-        action: {
-          label: "Undo",
-          onClick: () => {
-            store.undoReport(report.id).then(
-              () => toast("Sighting removed"),
-              (error: unknown) =>
-                toast.error(error instanceof Error ? error.message : "Couldn't undo."),
-            );
-          },
-        },
+      toast.success(`Report sent for ${lot.name}`, {
+        description: `Everyone on LotPulse can see it now. +${POINTS_PER_REPORT} clout.`,
+        duration: 6000,
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Couldn't send the alert.");
+      // Keep the dialog open so the reason sits next to the button.
+      setReportError(error instanceof Error ? error.message : "Couldn't send the report.");
     } finally {
       setSending(false);
     }
   };
 
-  const confirmPayment = () => {
-    const extending = status.session !== null;
-    store.pay(lot.id);
-    setDialog(null);
-    toast.success(extending ? "Session extended by 30 min" : "30-minute demo session started", {
-      description: "Simulated. Nothing was charged.",
-    });
-  };
-
   const weekday = store.now.toLocaleDateString("en-CA", { weekday: "long" });
   const statuses = LOTS.map((item) => ({ lot: item, status: statusFor(item.id) }));
   const hottest = statuses.reduce((top, item) =>
-    item.status.threat > top.status.threat ? item : top,
+    item.status.recentReports > top.status.recentReports ? item : top,
   );
   const spottedCount = statuses.filter((item) => item.status.spotted).length;
   const tickerItems = [
-    { label: live ? "Live scout network" : "Demo radar" },
+    { label: live ? "Live scout network" : "Not connected" },
     ...statuses.map(({ lot: item, status: itemStatus }) => ({
-      label: `${item.short} ${itemStatus.threat}% · ${TONE_LABEL[itemStatus.tone]}${itemStatus.spotted ? " · spotted" : ""}`,
+      label: `${item.short} · ${TONE_LABEL[itemStatus.tone]}${itemStatus.recentReports > 0 ? ` · ${itemStatus.recentReports} in 2h` : ""}`,
       tone: itemStatus.tone,
     })),
     { label: "Report it, earn clout" },
@@ -145,14 +128,14 @@ function Dashboard() {
               lines={greeting(store.now)}
               subtitle={
                 <>
-                  Here's the patrol outlook for {weekday}. Pick a lot, watch the curve, warn the
-                  campus.
+                  Live enforcement reports from students this {weekday}. Pick a lot, check the
+                  latest sighting, warn the campus.
                 </>
               }
               aside={
                 <>
                   <span className="demo-chip" data-live={live}>
-                    {live ? "Live reports · simulated forecasts" : "Demo data"}
+                    {live ? "Live reports" : "Not connected"}
                   </span>
                   <button
                     type="button"
@@ -161,15 +144,23 @@ function Dashboard() {
                     onClick={() => selectLot(hottest.lot.id)}
                   >
                     <span className="hero-stat-value">
-                      {hottest.status.threat}
-                      <small>%</small>
+                      {hottest.status.recentReports}
+                      <small>/2h</small>
                     </span>
                     <span className="hero-stat-label">
-                      Hottest right now · <strong>{hottest.lot.name}</strong>
+                      {spottedCount === 0 ? (
+                        <>
+                          No recent reports · <strong>all lots clear</strong>
+                        </>
+                      ) : (
+                        <>
+                          Most reported · <strong>{hottest.lot.name}</strong>
+                        </>
+                      )}
                       <span>
                         {spottedCount === 0
-                          ? "No lots spotted"
-                          : `${spottedCount} ${spottedCount === 1 ? "lot" : "lots"} spotted`}
+                          ? "Nothing in the last 2 hours"
+                          : `${spottedCount} ${spottedCount === 1 ? "lot" : "lots"} reported in the last 2 hours`}
                       </span>
                     </span>
                   </button>
@@ -183,19 +174,12 @@ function Dashboard() {
 
             <div className="dashboard-grid">
               <div className="dashboard-main">
-                <FocusLot
-                  lot={lot}
-                  status={status}
-                  now={store.now}
-                  live={live}
-                  {...(!live && { onPay: () => setDialog("pay") })}
-                />
+                <FocusLot lot={lot} status={status} now={store.now} live={live} />
                 <ReportButton
                   lot={lot}
                   cooldownMinutes={status.cooldownMinutes}
                   onReport={() => setDialog("report")}
                 />
-                <ThreatForecast lot={lot} now={store.now} />
               </div>
               <aside className="dashboard-side" aria-label="Campus overview">
                 <div className="desktop-only">
@@ -228,16 +212,8 @@ function Dashboard() {
               points={store.points}
               rank={store.rank}
               reports={store.reports}
-              payments={store.payments}
               badges={store.badges}
               leaderboard={store.leaderboard}
-              showJit={!live}
-              {...(!live && {
-                onReset: () => {
-                  store.reset();
-                  toast("Demo progress reset");
-                },
-              })}
             />
           </>
         )}
@@ -251,11 +227,8 @@ function Dashboard() {
               <BrandMark className="footer-mark" /> LotPulse · for students, by students
             </span>
             <span>
-              {live
-                ? "Scout reports are crowd-sourced; forecasts are simulated."
-                : "Simulated demo."}{" "}
-              Not affiliated with UTM. Always follow posted parking rules.{" "}
-              <Link to="/privacy">Privacy</Link>
+              Scout reports are crowd-sourced and unverified. Not affiliated with UTM. Always follow
+              posted parking rules. <Link to="/privacy">Privacy</Link>
             </span>
           </div>
         </footer>
@@ -268,22 +241,19 @@ function Dashboard() {
         live={live}
         needsName={store.needsName}
         busy={sending}
+        error={reportError}
         open={dialog === "report"}
-        onOpenChange={(open) => setDialog(open ? "report" : null)}
+        onOpenChange={(open) => {
+          setReportError(null);
+          setDialog(open ? "report" : null);
+        }}
         onConfirm={confirmReport}
-      />
-      <PaymentDialog
-        lot={lot}
-        extending={status.session !== null}
-        open={dialog === "pay"}
-        onOpenChange={(open) => setDialog(open ? "pay" : null)}
-        onConfirm={confirmPayment}
       />
       <Dialog open={dialog === "map"} onOpenChange={(open) => setDialog(open ? "map" : null)}>
         <DialogContent className="map-dialog">
           <DialogTitle className="lp-dialog-title">Campus radar</DialogTitle>
           <DialogDescription className="lp-dialog-body">
-            Tap a pin to switch lots. Pin colour shows patrol probability.
+            Tap a pin to switch lots. Pin colour shows reports in the last 2 hours.
           </DialogDescription>
           <CampusMap selected={lot.id} tones={tones} onSelect={selectLot} expanded />
         </DialogContent>
