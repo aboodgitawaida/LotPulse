@@ -64,7 +64,9 @@ imagery, so it never needs a key.
 
 1. **Database.** Apply the migrations in `supabase/migrations/` in order. If the Supabase GitHub
    integration is connected with "Deploy to production" on, merging to `main` does it. Otherwise
-   paste each file you haven't run yet into the Supabase **SQL Editor** and run it, oldest first.
+   paste all of `supabase/setup.sql` into the Supabase **SQL Editor** and press **Run**: it applies
+   every migration you haven't run yet, oldest first, in one transaction, and is safe to run again.
+   It's generated from the migrations (`bun run db:setup-sql` after adding one).
 2. **Anonymous sign-in.** In Supabase, open **Authentication → Sign In / Providers** and turn on
    **Allow anonymous sign-ins**.
 3. **Realtime.** The migrations add `reports` to the `supabase_realtime` publication. To check,
@@ -77,7 +79,12 @@ imagery, so it never needs a key.
    Then **redeploy**: Vite bakes these into the build, so existing deployments won't pick them up.
    For local development copy `.env.example` to `.env`.
 
-5. **Optional.** `VITE_SITE_URL` sets the absolute URL used in link previews (it defaults to
+5. **Check it.** `bun run verify:live` signs in anonymously with the publishable key, reports P9,
+   reads it back, waits for the Realtime event on a second client, checks the live site was built
+   with the keys, then deletes the test data (set `SUPABASE_SECRET_KEY` in your shell for the
+   cleanup; otherwise it prints the SQL to remove it). It needs the same two variables as the app.
+
+6. **Optional.** `VITE_SITE_URL` sets the absolute URL used in link previews (it defaults to
    Vercel's production domain), and `VITE_CONTACT_EMAIL` adds a data-deletion contact to
    `/privacy`.
 
@@ -106,6 +113,8 @@ src/
   styles.css       Design tokens and component styles
 supabase/
   migrations/      Database schema, row level security and guards
+  setup.sql        All migrations in one re-runnable script for the SQL Editor (generated)
+scripts/           setup.sql generator and the live end-to-end check
 ```
 
 ## Tech
