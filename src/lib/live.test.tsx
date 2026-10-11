@@ -1,74 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 
 import { rankLeaderboard } from "./community";
 import { friendlyError, parseSighting, useLiveCommunity, weekStart } from "./live";
-
-interface Query {
-  table: string;
-  op: "select" | "insert" | "delete";
-  values?: Record<string, unknown>;
-  filters: Record<string, unknown>;
-}
-
-type Result = { data?: unknown; error?: { message: string } | null };
-
-/** Just enough of the Supabase client for useLiveCommunity. */
-function fakeSupabase(respond: (query: Query) => Result) {
-  const queries: Query[] = [];
-  const from = (table: string) => {
-    const query: Query = { table, op: "select", filters: {} };
-    const builder: Record<string, unknown> = new Proxy(
-      {},
-      {
-        get(_, prop) {
-          if (prop === "then") {
-            queries.push(query);
-            const result = respond(query);
-            return (resolve: (value: Result) => void) =>
-              resolve({ data: result.data ?? null, error: result.error ?? null });
-          }
-          if (prop === "insert") {
-            return (values: Record<string, unknown>) => {
-              query.op = "insert";
-              query.values = values;
-              return builder;
-            };
-          }
-          if (prop === "delete") {
-            return () => {
-              query.op = "delete";
-              return builder;
-            };
-          }
-          if (prop === "eq") {
-            return (column: string, value: unknown) => {
-              query.filters[column] = value;
-              return builder;
-            };
-          }
-          return () => builder;
-        },
-      },
-    );
-    return builder;
-  };
-  const channel = { on: () => channel, subscribe: () => channel };
-  const client = {
-    from,
-    rpc: (fn: string) => from(fn),
-    channel: () => channel,
-    removeChannel: async () => "ok",
-    auth: {
-      getSession: async () => ({ data: { session: null } }),
-      signInAnonymously: async () => ({ data: { user: { id: "me" } }, error: null }),
-    },
-  };
-  return { client: client as unknown as SupabaseClient, queries };
-}
-
-const recent = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
+import { fakeSupabase, minutesAgo as recent } from "@/test/fake-supabase";
 
 describe("live helpers", () => {
   it("parses API rows and rejects bad ones", () => {
@@ -76,17 +11,26 @@ describe("live helpers", () => {
       parseSighting({
         id: "a",
         lot_id: "P4",
-        user_id: "u",
+        reporter_id: "u",
         created_at: "2026-10-05T12:00:00Z",
         profiles: { username: "deck_runner" },
       }),
     ).toMatchObject({ id: "a", lot: "P4", scout: "deck_runner" });
-    expect(parseSighting({ id: "a", lot_id: "P99", user_id: "u", created_at: "x" })).toBeNull();
+    expect(parseSighting({ id: "a", lot_id: "P99", reporter_id: "u", created_at: "x" })).toBeNull();
+    // Reports whose scout deleted their profile have no reporter.
+    expect(
+      parseSighting({
+        id: "b",
+        lot_id: "P9",
+        reporter_id: null,
+        created_at: "2026-10-05T12:00:00Z",
+      }),
+    ).toMatchObject({ id: "b", userId: "", scout: "scout" });
     expect(parseSighting(null)).toBeNull();
   });
 
   it("explains database errors in plain language", () => {
-    expect(friendlyError({ message: "cooldown: you reported this lot" })).toMatch(/15 minutes/);
+    expect(friendlyError({ message: "cooldown: you reported this lot" })).toMatch(/5 minutes/);
     expect(friendlyError({ message: "rate_limit: too many" })).toMatch(/Try again/);
     expect(friendlyError({ message: 'violates "profiles_username_unique"' })).toMatch(/taken/);
     expect(friendlyError({ message: "Anonymous sign-ins are disabled" })).toMatch(/switched on/);
@@ -123,21 +67,21 @@ describe("useLiveCommunity", () => {
       if (query.table === "weekly_leaderboard") {
         return { data: [{ user_id: "other", username: "deck_runner", points: 50 }] };
       }
-      if (query.table === "sightings" && query.op === "select") {
+      if (query.table === "reports" && query.op === "select") {
         return {
           data: [
             {
               id: "s1",
               lot_id: "IC",
-              user_id: "other",
+              reporter_id: "other",
               created_at: recent(5),
               profiles: { username: "deck_runner" },
             },
           ],
         };
       }
-      if (query.table === "sightings" && query.op === "insert") {
-        return { data: { id: "s2", lot_id: "P9", user_id: "me", created_at: recent(0) } };
+      if (query.table === "reports" && query.op === "insert") {
+        return { data: { id: "s2", lot_id: "P9", reporter_id: "me", created_at: recent(0) } };
       }
       return {};
     });
@@ -165,18 +109,51 @@ describe("useLiveCommunity", () => {
     expect(result.current?.leaderboard.find((row) => row.you)?.name).toBe("night_owl");
   });
 
-  it("surfaces cooldowns and expired undo windows as readable errors", async () => {
+  it("surfaces the cooldown as a readable error", async () => {
     const { client } = fakeSupabase((query) => {
-      if (query.table === "sightings" && query.op === "insert") {
-        return { error: { message: "cooldown: you reported this lot in the last 15 minutes" } };
+      if (query.table === "reports" && query.op === "insert") {
+        return { error: { message: "cooldown: you reported this lot in the last 5 minutes" } };
       }
-      if (query.table === "sightings" && query.op === "delete") return { data: [] };
       return { data: [] };
     });
     const { result } = renderHook(() => useLiveCommunity(client));
     await waitFor(() => expect(result.current?.loading).toBe(false));
 
-    await expect(result.current!.report("P4", "night_owl")).rejects.toThrow(/15 minutes/);
-    await expect(result.current!.undoReport("old")).rejects.toThrow(/Too late to undo/);
+    await expect(result.current!.report("P4", "night_owl")).rejects.toThrow(/5 minutes/);
+  });
+
+  it("adds reports from other devices as they arrive over Realtime", async () => {
+    const { client, emitInsert } = fakeSupabase((query) => {
+      if (query.table === "profiles") return { data: { username: "deck_runner" } };
+      return { data: [] };
+    });
+    const { result } = renderHook(() => useLiveCommunity(client));
+    await waitFor(() => expect(result.current?.loading).toBe(false));
+    expect(result.current?.sightings).toEqual([]);
+
+    act(() =>
+      emitInsert("reports", {
+        id: "s9",
+        lot_id: "P9",
+        reporter_id: "other",
+        created_at: recent(0),
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current?.sightings).toEqual([
+        expect.objectContaining({ id: "s9", lot: "P9", scout: "deck_runner" }),
+      ]),
+    );
+
+    // The same report arriving twice (Realtime + reload) is shown once.
+    act(() =>
+      emitInsert("reports", {
+        id: "s9",
+        lot_id: "P9",
+        reporter_id: "other",
+        created_at: recent(0),
+      }),
+    );
+    await waitFor(() => expect(result.current?.sightings).toHaveLength(1));
   });
 });

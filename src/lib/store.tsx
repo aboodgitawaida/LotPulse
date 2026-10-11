@@ -321,7 +321,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return report;
       },
       undoReport: async (id) => {
-        if (live) return live.undoReport(id);
+        if (live) throw new Error("Reports can't be undone.");
         dispatch({ type: "undo-report", id });
       },
       pay: (lot) => {
