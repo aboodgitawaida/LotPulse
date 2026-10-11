@@ -5,14 +5,47 @@ import { Maximize2, Radar } from "lucide-react";
 import { CAMPUS_CENTER, LOTS, type LotId, type Tone } from "@/lib/lots";
 import { cn } from "@/lib/utils";
 
-// Both basemaps work without an API key. The street map is standard
-// OpenStreetMap, darkened with a CSS filter (.tiles-dark) to fit the theme.
 type Basemap = "map" | "satellite";
 
-const BASEMAPS: Record<
-  Basemap,
-  { label: string; url: string; attribution: string; dark: boolean }
-> = {
+interface BasemapConfig {
+  label: string;
+  url: string;
+  attribution: string;
+  /** Light tiles darkened with a CSS filter (.tiles-dark) to fit the theme. */
+  dark: boolean;
+}
+
+// With VITE_MAPTILER_KEY set, tiles come from MapTiler (a dark street map and
+// satellite), which is built for app traffic. Without it, or if MapTiler stops
+// serving (bad key, monthly quota), the map falls back to the keyless public
+// OpenStreetMap and Esri tiles, which are fine for development but may
+// throttle a busy production site.
+const MAPTILER_KEY: string | undefined = import.meta.env.VITE_MAPTILER_KEY;
+
+const MAPTILER_ATTRIBUTION =
+  '<a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener"><img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler" class="maptiler-logo"></a> ' +
+  '<a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener">&copy; MapTiler</a> ' +
+  '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">&copy; OpenStreetMap contributors</a>';
+
+function maptilerBasemaps(key: string): Record<Basemap, BasemapConfig> {
+  const k = encodeURIComponent(key);
+  return {
+    map: {
+      label: "Map",
+      url: `https://api.maptiler.com/maps/streets-v2-dark/256/{z}/{x}/{y}{r}.png?key=${k}`,
+      attribution: MAPTILER_ATTRIBUTION,
+      dark: false,
+    },
+    satellite: {
+      label: "Satellite",
+      url: `https://api.maptiler.com/maps/satellite/256/{z}/{x}/{y}{r}.jpg?key=${k}`,
+      attribution: MAPTILER_ATTRIBUTION,
+      dark: false,
+    },
+  };
+}
+
+const FREE_BASEMAPS: Record<Basemap, BasemapConfig> = {
   map: {
     label: "Map",
     url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -27,6 +60,8 @@ const BASEMAPS: Record<
     dark: false,
   },
 };
+
+const BASEMAP_KEYS: readonly Basemap[] = ["map", "satellite"];
 
 const BASEMAP_KEY = "lotpulse:basemap";
 
@@ -73,6 +108,9 @@ export function CampusMap({
   const [basemap, setBasemap] = useState<Basemap>(loadBasemap);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [tilesFailed, setTilesFailed] = useState(false);
+  // Switches to the free tiles for this visit if MapTiler stops serving.
+  const [maptilerFailed, setMaptilerFailed] = useState(false);
+  const usingMaptiler = Boolean(MAPTILER_KEY) && !maptilerFailed;
 
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -147,8 +185,11 @@ export function CampusMap({
     const L = leafletRef.current;
     const map = mapRef.current;
     if (status !== "ready" || !L || !map) return;
-    const config = BASEMAPS[basemap];
+    const config = (usingMaptiler && MAPTILER_KEY ? maptilerBasemaps(MAPTILER_KEY) : FREE_BASEMAPS)[
+      basemap
+    ];
     let tileErrors = 0;
+    let tileLoads = 0;
     setTilesFailed(false);
     const layer = L.tileLayer(config.url, {
       attribution: config.attribution,
@@ -157,9 +198,14 @@ export function CampusMap({
     })
       .on("tileerror", () => {
         tileErrors += 1;
-        if (tileErrors >= 4) setTilesFailed(true);
+        if (tileErrors < 4 || tileLoads > 0) return;
+        if (usingMaptiler) setMaptilerFailed(true);
+        else setTilesFailed(true);
       })
-      .on("tileload", () => setTilesFailed(false))
+      .on("tileload", () => {
+        tileLoads += 1;
+        setTilesFailed(false);
+      })
       .addTo(map);
     tileLayerRef.current?.remove();
     tileLayerRef.current = layer;
@@ -168,7 +214,7 @@ export function CampusMap({
     } catch {
       // Preference just won't persist.
     }
-  }, [basemap, status]);
+  }, [basemap, status, usingMaptiler]);
 
   useEffect(() => {
     const L = leafletRef.current;
@@ -208,14 +254,14 @@ export function CampusMap({
       <div ref={containerRef} className="campus-map-canvas" />
       {status === "ready" && (
         <div className="basemap-toggle" role="group" aria-label="Map style">
-          {(Object.keys(BASEMAPS) as Basemap[]).map((key) => (
+          {BASEMAP_KEYS.map((key) => (
             <button
               key={key}
               type="button"
               aria-pressed={basemap === key}
               onClick={() => setBasemap(key)}
             >
-              {BASEMAPS[key].label}
+              {FREE_BASEMAPS[key].label}
             </button>
           ))}
         </div>

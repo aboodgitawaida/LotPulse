@@ -54,9 +54,10 @@ function PrivacyPage() {
         <h2>Where it lives</h2>
         <p>
           Sightings and scout names are stored with Supabase, and the site is hosted on Vercel; both
-          keep standard server logs, such as IP addresses. Map tiles load straight from
-          OpenStreetMap and Esri, so they see your IP address too. There are no ads, analytics or
-          tracking cookies.
+          keep standard server logs, such as IP addresses. Map tiles load straight from MapTiler (or
+          OpenStreetMap and Esri as a backup), and your first report runs a Cloudflare Turnstile bot
+          check, so those services see your IP address too. There are no ads, analytics or tracking
+          cookies.
         </p>
         <p>
           Your browser keeps your anonymous sign-in, chosen lot and map style in local storage.
