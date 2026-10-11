@@ -20,8 +20,8 @@ const board = (points: number) =>
   );
 
 const status = (overrides: Partial<LotStatus> = {}): LotStatus => ({
-  threat: 50,
-  tone: "medium",
+  recentReports: 0,
+  tone: "low",
   lastSighting: null,
   spotted: false,
   cooldownMinutes: 0,
@@ -41,11 +41,11 @@ describe("LotSwitcher", () => {
 });
 
 describe("FocusLot", () => {
-  it("shows clear status, threat and the countdown to the next peak", () => {
+  it("shows a lot with no recent reports as clear", () => {
     render(<FocusLot lot={getLot("P9")} status={status()} now={now} onPay={() => {}} />);
-    expect(screen.getByText("Clear")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Patrol probability 50 percent" })).toBeInTheDocument();
-    expect(screen.getByText("Next peak in 40m")).toBeInTheDocument();
+    expect(screen.getAllByText("Clear")).toHaveLength(2);
+    expect(screen.getByRole("img", { name: "0 reports in the last 2 hours" })).toBeInTheDocument();
+    expect(screen.getAllByText("No recent reports")).toHaveLength(2);
     expect(screen.getByRole("button", { name: /Pay 30 min/ })).toBeInTheDocument();
   });
 
@@ -56,7 +56,8 @@ describe("FocusLot", () => {
         lot={getLot("P9")}
         status={status({
           spotted: true,
-          tone: "high",
+          recentReports: 1,
+          tone: "medium",
           lastSighting: { id: "1", lot: "P9", scout: "You", at, mine: true },
           session: { lot: "P9", at, until: at + 30 * 60_000 },
         })}
@@ -65,6 +66,8 @@ describe("FocusLot", () => {
       />,
     );
     expect(screen.getByText("Spotted")).toBeInTheDocument();
+    expect(screen.getByText("Caution")).toBeInTheDocument();
+    expect(screen.getByText("1 report in the last 2 hours")).toBeInTheDocument();
     expect(screen.getByText("by you")).toBeInTheDocument();
     expect(screen.getByText("30m left")).toBeInTheDocument();
   });

@@ -6,8 +6,6 @@ export const BASE_POINTS = 120;
 export const POINTS_PER_REPORT = 25;
 /** A scout can report the same lot at most once per cooldown window. */
 export const REPORT_COOLDOWN_MINUTES = 15;
-/** A lot shows as "spotted" for this long after the latest sighting. */
-export const SPOTTED_WINDOW_MINUTES = 30;
 export const SESSION_MINUTES = 30;
 
 export interface Scout {

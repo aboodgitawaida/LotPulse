@@ -1,27 +1,4 @@
-import type { Lot, PeakWindow } from "./lots";
-
-function hourParts(hour: number) {
-  const normalized = ((hour % 24) + 24) % 24;
-  return {
-    value: normalized % 12 === 0 ? 12 : normalized % 12,
-    period: normalized < 12 ? "AM" : "PM",
-  };
-}
-
-/** 13 → "1 PM", 0 → "12 AM". */
-export function formatHour(hour: number): string {
-  const { value, period } = hourParts(hour);
-  return `${value} ${period}`;
-}
-
-/** Peak window as "1–4 PM" or "11 AM–2 PM". */
-export function formatWindow({ start, end }: Pick<PeakWindow, "start" | "end">): string {
-  const from = hourParts(start);
-  const to = hourParts(end);
-  return from.period === to.period
-    ? `${from.value}–${to.value} ${to.period}`
-    : `${from.value} ${from.period}–${to.value} ${to.period}`;
-}
+import type { Lot } from "./lots";
 
 /** 135 → "2h 15m", 45 → "45m", 120 → "2h". */
 export function formatDuration(totalMinutes: number): string {

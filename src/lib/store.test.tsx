@@ -36,7 +36,8 @@ describe("store", () => {
     expect(result.current.points).toBe(BASE_POINTS + POINTS_PER_REPORT);
     const status = result.current.statusFor("P9");
     expect(status.spotted).toBe(true);
-    expect(status.tone).toBe("high");
+    expect(status.recentReports).toBe(1);
+    expect(status.tone).toBe("medium");
     expect(status.cooldownMinutes).toBe(REPORT_COOLDOWN_MINUTES);
     expect(result.current.sightings[0]).toMatchObject({ lot: "P9", mine: true });
     expect(result.current.badges.has("first-signal")).toBe(true);

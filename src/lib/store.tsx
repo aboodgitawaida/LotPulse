@@ -19,13 +19,12 @@ import {
   REPORT_COOLDOWN_MINUTES,
   SEED_SIGHTINGS,
   SESSION_MINUTES,
-  SPOTTED_WINDOW_MINUTES,
   rankLeaderboard,
   type BadgeId,
   type LeaderboardRow,
 } from "./community";
 import { useLiveCommunity } from "./live";
-import { LOT_IDS, getLot, isLotId, threatAt, toneFor, type LotId, type Tone } from "./lots";
+import { LOT_IDS, RISK_WINDOW_MINUTES, isLotId, riskFor, type LotId, type Tone } from "./lots";
 import { supabase } from "./supabase";
 
 const STORAGE_KEY = "lotpulse:v1";
@@ -146,9 +145,12 @@ export interface Sighting {
 }
 
 export interface LotStatus {
-  threat: number;
+  /** Reports for this lot in the last RISK_WINDOW_MINUTES. */
+  recentReports: number;
   tone: Tone;
+  /** The most recent report for this lot, if it's within the feed window. */
   lastSighting: Sighting | null;
+  /** At least one recent report. */
   spotted: boolean;
   /** Minutes until this scout may report the lot again (0 = can report). */
   cooldownMinutes: number;
@@ -268,9 +270,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const statusFor = useCallback(
     (lotId: LotId): LotStatus => {
       const nowMs = now.getTime();
-      const lastSighting = sightings.find((s) => s.lot === lotId) ?? null;
-      const spotted =
-        lastSighting !== null && nowMs - lastSighting.at < SPOTTED_WINDOW_MINUTES * MINUTE;
+      // Sightings are sorted newest first.
+      const forLot = sightings.filter((s) => s.lot === lotId);
+      const lastSighting = forLot[0] ?? null;
+      const recentReports = forLot.filter(
+        (s) => nowMs - s.at < RISK_WINDOW_MINUTES * MINUTE,
+      ).length;
       const lastMine = reports
         .filter((r) => r.lot === lotId)
         .reduce<Report | undefined>(
@@ -278,14 +283,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           undefined,
         );
       const cooldownMs = lastMine ? lastMine.at + REPORT_COOLDOWN_MINUTES * MINUTE - nowMs : 0;
-      // A fresh sighting means enforcement is on site: lift the prediction.
-      const predicted = threatAt(getLot(lotId), now);
-      const threat = spotted ? Math.max(predicted, 90) : predicted;
       return {
-        threat,
-        tone: toneFor(threat),
+        recentReports,
+        tone: riskFor(recentReports),
         lastSighting,
-        spotted,
+        spotted: recentReports > 0,
         cooldownMinutes: cooldownMs > 0 ? Math.ceil(cooldownMs / MINUTE) : 0,
         session: state.payments.find((p) => p.lot === lotId && p.until > nowMs) ?? null,
       };

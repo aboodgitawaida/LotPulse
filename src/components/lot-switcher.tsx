@@ -1,4 +1,4 @@
-import { LOTS, type LotId } from "@/lib/lots";
+import { LOTS, TONE_LABEL, type LotId } from "@/lib/lots";
 import type { LotStatus } from "@/lib/store";
 
 interface LotSwitcherProps {
@@ -19,7 +19,7 @@ export function LotSwitcher({ selected, statusFor, onSelect }: LotSwitcherProps)
             className="lot-chip"
             data-tone={status.tone}
             aria-pressed={lot.id === selected}
-            aria-label={`${lot.name}, ${status.threat}% patrol probability${status.spotted ? ", enforcement spotted" : ""}`}
+            aria-label={`${lot.name}, ${TONE_LABEL[status.tone]}, ${status.recentReports} ${status.recentReports === 1 ? "report" : "reports"} in the last 2 hours`}
             onClick={() => onSelect(lot.id)}
           >
             <span className="lot-chip-top">
@@ -32,11 +32,11 @@ export function LotSwitcher({ selected, statusFor, onSelect }: LotSwitcherProps)
               {status.spotted && <span className="spotted-dot" aria-hidden />}
             </span>
             <span className="lot-chip-threat">
-              {status.threat}
-              <small>%</small>
+              {status.recentReports}
+              <small>/2h</small>
             </span>
             <span className="lot-chip-bar" aria-hidden>
-              <span style={{ width: `${status.threat}%` }} />
+              <span style={{ width: `${(Math.min(status.recentReports, 2) / 2) * 100}%` }} />
             </span>
           </button>
         );

@@ -13,7 +13,6 @@ import { Leaderboard } from "@/components/leaderboard";
 import { PaymentDialog, ReportDialog } from "@/components/lot-dialogs";
 import { LotSwitcher } from "@/components/lot-switcher";
 import { ReportButton } from "@/components/report-button";
-import { ThreatForecast } from "@/components/threat-forecast";
 import { Ticker } from "@/components/ticker";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
@@ -117,13 +116,13 @@ function Dashboard() {
   const weekday = store.now.toLocaleDateString("en-CA", { weekday: "long" });
   const statuses = LOTS.map((item) => ({ lot: item, status: statusFor(item.id) }));
   const hottest = statuses.reduce((top, item) =>
-    item.status.threat > top.status.threat ? item : top,
+    item.status.recentReports > top.status.recentReports ? item : top,
   );
   const spottedCount = statuses.filter((item) => item.status.spotted).length;
   const tickerItems = [
     { label: live ? "Live scout network" : "Demo radar" },
     ...statuses.map(({ lot: item, status: itemStatus }) => ({
-      label: `${item.short} ${itemStatus.threat}% · ${TONE_LABEL[itemStatus.tone]}${itemStatus.spotted ? " · spotted" : ""}`,
+      label: `${item.short} · ${TONE_LABEL[itemStatus.tone]}${itemStatus.recentReports > 0 ? ` · ${itemStatus.recentReports} in 2h` : ""}`,
       tone: itemStatus.tone,
     })),
     { label: "Report it, earn clout" },
@@ -145,8 +144,8 @@ function Dashboard() {
               lines={greeting(store.now)}
               subtitle={
                 <>
-                  Here's the patrol outlook for {weekday}. Pick a lot, watch the curve, warn the
-                  campus.
+                  Live enforcement reports from students this {weekday}. Pick a lot, check the
+                  latest sighting, warn the campus.
                 </>
               }
               aside={
@@ -161,15 +160,23 @@ function Dashboard() {
                     onClick={() => selectLot(hottest.lot.id)}
                   >
                     <span className="hero-stat-value">
-                      {hottest.status.threat}
-                      <small>%</small>
+                      {hottest.status.recentReports}
+                      <small>/2h</small>
                     </span>
                     <span className="hero-stat-label">
-                      Hottest right now · <strong>{hottest.lot.name}</strong>
+                      {spottedCount === 0 ? (
+                        <>
+                          No recent reports · <strong>all lots clear</strong>
+                        </>
+                      ) : (
+                        <>
+                          Most reported · <strong>{hottest.lot.name}</strong>
+                        </>
+                      )}
                       <span>
                         {spottedCount === 0
-                          ? "No lots spotted"
-                          : `${spottedCount} ${spottedCount === 1 ? "lot" : "lots"} spotted`}
+                          ? "Nothing in the last 2 hours"
+                          : `${spottedCount} ${spottedCount === 1 ? "lot" : "lots"} reported in the last 2 hours`}
                       </span>
                     </span>
                   </button>
@@ -195,7 +202,6 @@ function Dashboard() {
                   cooldownMinutes={status.cooldownMinutes}
                   onReport={() => setDialog("report")}
                 />
-                <ThreatForecast lot={lot} now={store.now} />
               </div>
               <aside className="dashboard-side" aria-label="Campus overview">
                 <div className="desktop-only">
@@ -283,7 +289,7 @@ function Dashboard() {
         <DialogContent className="map-dialog">
           <DialogTitle className="lp-dialog-title">Campus radar</DialogTitle>
           <DialogDescription className="lp-dialog-body">
-            Tap a pin to switch lots. Pin colour shows patrol probability.
+            Tap a pin to switch lots. Pin colour shows reports in the last 2 hours.
           </DialogDescription>
           <CampusMap selected={lot.id} tones={tones} onSelect={selectLot} expanded />
         </DialogContent>
