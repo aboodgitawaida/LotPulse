@@ -8,6 +8,8 @@ interface ImportMetaEnv {
   readonly VITE_SITE_URL?: string;
   /** Shown on the privacy page for data deletion requests. */
   readonly VITE_CONTACT_EMAIL?: string;
+  /** Cloudflare Turnstile site key (public). Its secret goes in Supabase, never here. */
+  readonly VITE_TURNSTILE_SITE_KEY?: string;
   // Set automatically by the Supabase ↔ Vercel integration.
   readonly NEXT_PUBLIC_SUPABASE_URL?: string;
   readonly NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?: string;

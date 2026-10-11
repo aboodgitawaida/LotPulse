@@ -79,11 +79,11 @@ function Dashboard() {
     if (view !== "radar") void navigate({ search: {} });
   };
 
-  const confirmReport = async (scoutName?: string) => {
+  const confirmReport = async (scoutName?: string, captchaToken?: string) => {
     setSending(true);
     setReportError(null);
     try {
-      await store.report(lot.id, scoutName);
+      await store.report(lot.id, scoutName, captchaToken);
       setDialog(null);
       toast.success(`Report sent for ${lot.name}`, {
         description: `Everyone on LotPulse can see it now. +${POINTS_PER_REPORT} clout.`,

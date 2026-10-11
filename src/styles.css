@@ -1434,6 +1434,15 @@
   font-weight: 600;
   text-align: right;
 }
+.turnstile {
+  display: flex;
+  justify-content: center;
+  min-height: 65px;
+  margin-bottom: 16px;
+}
+.turnstile:empty {
+  min-height: 0;
+}
 .lp-field {
   display: grid;
   gap: 6px;
