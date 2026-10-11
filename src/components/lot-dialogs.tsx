@@ -1,10 +1,9 @@
 import { useId, useState, type FormEvent, type ReactNode } from "react";
-import { BellRing, CreditCard, Crosshair, TimerReset } from "lucide-react";
+import { BellRing, Crosshair } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { POINTS_PER_REPORT, SESSION_MINUTES } from "@/lib/community";
-import { formatPrice, formatRate } from "@/lib/format";
+import { POINTS_PER_REPORT } from "@/lib/community";
 import type { Lot } from "@/lib/lots";
 
 interface ConfirmDialogProps {
@@ -22,6 +21,8 @@ interface ConfirmDialogProps {
   children?: ReactNode;
   busy?: boolean;
   confirmDisabled?: boolean;
+  /** Why the last attempt failed, shown above the buttons. */
+  error?: string | null;
 }
 
 function ConfirmDialog(props: ConfirmDialogProps) {
@@ -48,6 +49,11 @@ function ConfirmDialog(props: ConfirmDialogProps) {
           }}
         >
           {props.children}
+          {props.error && (
+            <p className="lp-dialog-error" role="alert">
+              {props.error}
+            </p>
+          )}
           <div className="lp-dialog-actions">
             <Button
               type="button"
@@ -73,20 +79,17 @@ function ConfirmDialog(props: ConfirmDialogProps) {
   );
 }
 
-interface LotDialogProps {
+const SCOUT_NAME = /^[A-Za-z0-9_]{3,20}$/;
+
+interface ReportDialogProps {
   lot: Lot;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
-}
-
-const SCOUT_NAME = /^[A-Za-z0-9_]{3,20}$/;
-
-interface ReportDialogProps extends Omit<LotDialogProps, "onConfirm"> {
   live: boolean;
-  /** Live mode: ask for a public scout name with the first report. */
+  /** Ask for a public scout name with the first report. */
   needsName: boolean;
   busy: boolean;
+  error: string | null;
   onConfirm: (scoutName?: string) => void;
 }
 
@@ -109,11 +112,7 @@ export function ReportDialog({
       onConfirm={() => onConfirm(needsName ? name : undefined)}
       icon={<Crosshair />}
       title={`Enforcement at ${lot.name}?`}
-      description={
-        live
-          ? "Confirm the sighting to warn every student watching this lot. You can undo it for 2 minutes."
-          : "Confirm the sighting to warn everyone watching this lot. You can undo it for a few seconds afterwards."
-      }
+      description="Confirm the sighting to warn every student watching this lot. It shows up on everyone's screen right away."
       summary={[
         { label: "Location", value: `${lot.name} · ${lot.area}` },
         { label: "Reward", value: `+${POINTS_PER_REPORT} clout` },
@@ -123,7 +122,7 @@ export function ReportDialog({
       notice={
         live
           ? "Only your scout name, the lot and the time are shared. No photos or personal details."
-          : "Demo only. No real alert is sent."
+          : "Reporting isn't connected on this site yet, so nothing will be sent."
       }
     >
       {needsName && (
@@ -148,29 +147,5 @@ export function ReportDialog({
         </div>
       )}
     </ConfirmDialog>
-  );
-}
-
-export function PaymentDialog({
-  lot,
-  extending,
-  ...rest
-}: LotDialogProps & { extending: boolean }) {
-  return (
-    <ConfirmDialog
-      {...rest}
-      icon={extending ? <TimerReset /> : <CreditCard />}
-      title={extending ? `Extend your ${lot.name} session?` : `Pay for 30 min at ${lot.name}?`}
-      description="Just-in-time payment preview for when a patrol is close. For real parking, use UTM's official payment service."
-      summary={[
-        { label: "Lot", value: lot.name },
-        { label: "Posted rate", value: formatRate(lot.rate) },
-        { label: "Demo charge", value: `${formatPrice(lot.rate.halfHour)} (not charged)` },
-        { label: extending ? "Adds" : "Duration", value: `${SESSION_MINUTES} minutes` },
-      ]}
-      confirmLabel={extending ? "Extend session" : "Start session"}
-      confirmIcon={<CreditCard />}
-      notice="Demo only. Nothing is charged and no permit is issued. Rates change, so check posted signs."
-    />
   );
 }

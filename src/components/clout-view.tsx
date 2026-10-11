@@ -1,4 +1,4 @@
-import { Award, Lock, RotateCcw, ShieldCheck, Zap } from "lucide-react";
+import { Award, Lock, ShieldCheck, Zap } from "lucide-react";
 
 import { Leaderboard } from "@/components/leaderboard";
 import {
@@ -10,32 +10,17 @@ import {
   type LeaderboardRow,
 } from "@/lib/community";
 import { LOTS } from "@/lib/lots";
-import type { Payment, Report } from "@/lib/store";
+import type { Report } from "@/lib/store";
 
 interface CloutViewProps {
   points: number;
   rank: number;
   reports: Report[];
-  payments: Payment[];
   badges: Set<BadgeId>;
   leaderboard: LeaderboardRow[];
-  /** Demo mode only: wipe simulated progress. */
-  onReset?: () => void;
-  /** Demo mode only: show the simulated JIT payment stat and badge. */
-  showJit?: boolean;
 }
 
-export function CloutView({
-  points,
-  rank,
-  reports,
-  payments,
-  badges,
-  leaderboard,
-  onReset,
-  showJit = true,
-}: CloutViewProps) {
-  const badgeList = showJit ? BADGES : BADGES.filter((badge) => badge.id !== "just-in-time");
+export function CloutView({ points, rank, reports, badges, leaderboard }: CloutViewProps) {
   const scouts = Math.max(leaderboard.length, rank);
   const { current, next } = tierFor(points);
   const progress = next ? ((points - current.min) / (next.min - current.min)) * 100 : 100;
@@ -75,7 +60,7 @@ export function CloutView({
         </div>
         <dl className="clout-stats">
           <div>
-            <dt>Sightings</dt>
+            <dt>Reports</dt>
             <dd>{reports.length}</dd>
           </div>
           <div>
@@ -84,12 +69,6 @@ export function CloutView({
               {lotsCovered}/{LOTS.length}
             </dd>
           </div>
-          {showJit && (
-            <div>
-              <dt>JIT sessions</dt>
-              <dd>{payments.length}</dd>
-            </div>
-          )}
         </dl>
       </section>
 
@@ -99,11 +78,11 @@ export function CloutView({
             <Award aria-hidden /> Badges
           </h2>
           <span className="card-meta">
-            {badgeList.filter((badge) => badges.has(badge.id)).length}/{badgeList.length} earned
+            {BADGES.filter((badge) => badges.has(badge.id)).length}/{BADGES.length} earned
           </span>
         </header>
         <ul className="badge-grid">
-          {badgeList.map((badge) => {
+          {BADGES.map((badge) => {
             const earned = badges.has(badge.id);
             return (
               <li key={badge.id} className="badge" data-earned={earned}>
@@ -126,15 +105,10 @@ export function CloutView({
           <ShieldCheck aria-hidden /> How clout works
         </h2>
         <ul>
-          <li>Every sighting you report earns +{POINTS_PER_REPORT} clout.</li>
+          <li>Every report earns +{POINTS_PER_REPORT} clout, counted by the database.</li>
           <li>You can report each lot once every {REPORT_COOLDOWN_MINUTES} minutes, so no spam.</li>
           <li>The leaderboard resets every Monday. Climb the tiers to earn your badges.</li>
         </ul>
-        {onReset && (
-          <button type="button" className="text-button" onClick={onReset}>
-            <RotateCcw aria-hidden /> Reset demo progress
-          </button>
-        )}
       </section>
     </div>
   );

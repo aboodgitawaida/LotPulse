@@ -1,7 +1,7 @@
-import { Activity, CircleParking, Clock3, CreditCard, Radio, TimerReset } from "lucide-react";
+import { Activity, CircleParking, Clock3, Radio } from "lucide-react";
 
 import { ThreatGauge } from "@/components/threat-gauge";
-import { formatDuration, formatRate, timeAgo } from "@/lib/format";
+import { formatRate, timeAgo } from "@/lib/format";
 import { TONE_LABEL, type Lot } from "@/lib/lots";
 import type { LotStatus } from "@/lib/store";
 
@@ -9,14 +9,11 @@ interface FocusLotProps {
   lot: Lot;
   status: LotStatus;
   now: Date;
-  /** Simulated JIT payment. Omitted in live mode, where it could pass for a real permit. */
-  onPay?: () => void;
   live?: boolean;
 }
 
-export function FocusLot({ lot, status, now, onPay, live = false }: FocusLotProps) {
-  const { lastSighting, session } = status;
-  const sessionMinutes = session ? Math.ceil((session.until - now.getTime()) / 60_000) : 0;
+export function FocusLot({ lot, status, now, live = false }: FocusLotProps) {
+  const { lastSighting } = status;
 
   return (
     <section className="card focus-lot" aria-labelledby="focus-lot-title" data-tone={status.tone}>
@@ -83,27 +80,9 @@ export function FocusLot({ lot, status, now, onPay, live = false }: FocusLotProp
       </div>
 
       <footer className="focus-lot-footer">
-        {onPay && (
-          <button
-            type="button"
-            className="jit-button"
-            onClick={onPay}
-            data-active={session !== null}
-          >
-            {session ? <TimerReset aria-hidden /> : <CreditCard aria-hidden />}
-            {session ? (
-              <span>
-                Demo session · <strong>{formatDuration(sessionMinutes)} left</strong>
-              </span>
-            ) : (
-              <span>
-                Pay 30 min <span className="jit-tag">Demo</span>
-              </span>
-            )}
-          </button>
-        )}
         <span className="focus-lot-updated">
-          <Clock3 aria-hidden /> {live ? "Live scout reports" : "Simulated · student signals"}
+          <Clock3 aria-hidden />{" "}
+          {live ? "Live scout reports" : "Not connected · no reports to show"}
         </span>
       </footer>
     </section>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDuration, formatRate, timeAgo } from "./format";
+import { formatRate, timeAgo } from "./format";
 import { LOTS, getLot, riskFor } from "./lots";
 
 const monday = (time: string) => new Date(`2026-10-05T${time}:00`);
@@ -23,12 +23,6 @@ describe("riskFor", () => {
 });
 
 describe("format helpers", () => {
-  it("formats durations", () => {
-    expect(formatDuration(45)).toBe("45m");
-    expect(formatDuration(120)).toBe("2h");
-    expect(formatDuration(135)).toBe("2h 15m");
-  });
-
   it("formats posted rates", () => {
     expect(formatRate(getLot("P9").rate)).toBe("$3.00 / 30 min · $18 daily max");
     expect(formatRate(getLot("IC").rate)).toBe("$2.75 / 30 min");

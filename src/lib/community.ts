@@ -1,28 +1,9 @@
-// Simulated community data for the demo: other scouts, recent sightings,
-// clout tiers and badges.
-import type { LotId } from "./lots";
+// Clout rules, tiers and badges. Points themselves are counted by the database
+// (weekly_leaderboard in supabase/migrations): 25 per report since Monday.
 
-export const BASE_POINTS = 120;
 export const POINTS_PER_REPORT = 25;
-/** A scout can report the same lot at most once per cooldown window. */
-export const REPORT_COOLDOWN_MINUTES = 15;
-export const SESSION_MINUTES = 30;
-
-export interface Scout {
-  name: string;
-  points: number;
-}
-
-export const OTHER_SCOUTS: readonly Scout[] = [
-  { name: "UofT_Driver", points: 450 },
-  { name: "parking_ninja", points: 380 },
-  { name: "UTM_scout", points: 325 },
-  { name: "maple_parker", points: 290 },
-  { name: "north_lot_nate", points: 240 },
-  { name: "deerfield_dash", points: 205 },
-  { name: "kaneff_kid", points: 160 },
-  { name: "ccit_crawler", points: 135 },
-];
+/** A scout can report the same lot at most once per cooldown window (the database enforces it). */
+export const REPORT_COOLDOWN_MINUTES = 5;
 
 export interface LeaderboardRow {
   name: string;
@@ -41,23 +22,6 @@ export function rankLeaderboard(
     .sort((a, b) => b.points - a.points || Number(b.you) - Number(a.you))
     .map((row, index) => ({ ...row, rank: index + 1 }));
 }
-
-export interface SeedSighting {
-  lot: LotId;
-  scout: string;
-  minutesAgo: number;
-}
-
-/** Sightings placed relative to when the page was opened. */
-export const SEED_SIGHTINGS: readonly SeedSighting[] = [
-  { lot: "IC", scout: "parking_ninja", minutesAgo: 18 },
-  { lot: "P4", scout: "UTM_scout", minutesAgo: 72 },
-  { lot: "CCT", scout: "ccit_crawler", minutesAgo: 110 },
-  { lot: "P9", scout: "UofT_Driver", minutesAgo: 180 },
-  { lot: "P4", scout: "north_lot_nate", minutesAgo: 300 },
-  { lot: "P11", scout: "deerfield_dash", minutesAgo: 260 },
-  { lot: "P8", scout: "maple_parker", minutesAgo: 420 },
-];
 
 export interface Tier {
   name: string;
@@ -79,7 +43,7 @@ export function tierFor(points: number): { current: Tier; next: Tier | null } {
   return { current: TIERS[index]!, next: TIERS[index + 1] ?? null };
 }
 
-export type BadgeId = "first-signal" | "hat-trick" | "campus-wide" | "just-in-time";
+export type BadgeId = "first-signal" | "hat-trick" | "campus-wide";
 
 export interface Badge {
   id: BadgeId;
@@ -88,8 +52,7 @@ export interface Badge {
 }
 
 export const BADGES: readonly Badge[] = [
-  { id: "first-signal", name: "First signal", description: "Send your first sighting" },
-  { id: "hat-trick", name: "Hat trick", description: "Send 3 sightings" },
+  { id: "first-signal", name: "First signal", description: "Send your first report" },
+  { id: "hat-trick", name: "Hat trick", description: "Send 3 reports" },
   { id: "campus-wide", name: "Campus-wide", description: "Report in every lot" },
-  { id: "just-in-time", name: "Just in time", description: "Start a JIT parking session" },
 ];
