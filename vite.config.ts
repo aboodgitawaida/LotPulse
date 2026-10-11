@@ -4,7 +4,8 @@ import viteReact from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig, loadEnv } from "vite";
 
-const TILE_HOSTS = "https://tile.openstreetmap.org https://server.arcgisonline.com";
+const TILE_HOSTS =
+  "https://api.maptiler.com https://tile.openstreetmap.org https://server.arcgisonline.com";
 // Cloudflare Turnstile (the bot check before a scout's first report).
 const TURNSTILE = "https://challenges.cloudflare.com";
 
