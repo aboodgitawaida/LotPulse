@@ -1,13 +1,25 @@
 import { describe, expect, it } from "vitest";
 
 import { formatRate, timeAgo } from "./format";
-import { LOTS, getLot, riskFor } from "./lots";
+import { CAMPUS_BOUNDS, CAMPUS_CENTER, LOTS, getLot, riskFor } from "./lots";
 
 const monday = (time: string) => new Date(`2026-10-05T${time}:00`);
 
 describe("lot data", () => {
   it("has a unique id for every lot", () => {
     expect(new Set(LOTS.map((lot) => lot.id)).size).toBe(LOTS.length);
+  });
+});
+
+describe("campus bounds", () => {
+  it("contain every lot and the map's starting point", () => {
+    const inside = ({ lat, lng }: { lat: number; lng: number }) =>
+      lat > CAMPUS_BOUNDS.south &&
+      lat < CAMPUS_BOUNDS.north &&
+      lng > CAMPUS_BOUNDS.west &&
+      lng < CAMPUS_BOUNDS.east;
+    for (const lot of LOTS) expect(inside(lot.position), lot.id).toBe(true);
+    expect(inside(CAMPUS_CENTER)).toBe(true);
   });
 });
 

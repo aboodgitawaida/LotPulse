@@ -30,11 +30,12 @@ bun run dev        # http://localhost:3000
 | `bun run format` | Format everything with Prettier      |
 
 Without the Supabase environment variables the app runs but is **not connected**: it shows no
-reports and won't send any. The campus map uses [Leaflet](https://leafletjs.com). In production set `VITE_MAPTILER_KEY`
-([MapTiler](https://www.maptiler.com), free for 100k map loads a month) for a dark street map and
-satellite imagery that can handle real traffic. Without a key, or if MapTiler stops serving, it
-falls back to the public OpenStreetMap and Esri tiles, which are fine for development but may
-throttle a busy site. The key is public by design: in MapTiler, restrict it to your domains.
+reports and won't send any. The campus map uses [Leaflet](https://leafletjs.com) with the public OpenStreetMap tiles
+(darkened with CSS) and Esri satellite imagery, which need no key. Those servers aren't meant for
+app traffic and may throttle or block a busy site, so set `VITE_MAPTILER_KEY`
+([MapTiler](https://www.maptiler.com), free for 100k map loads a month) as a backup: when the
+public tiles fail, the map switches to MapTiler for that visit, with the same darkened look. The
+key is public by design: in MapTiler, restrict it to your domains.
 
 ## How live reports work
 

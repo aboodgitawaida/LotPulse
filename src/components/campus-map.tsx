@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import type { DivIcon, Map as LeafletMap, Marker, TileLayer } from "leaflet";
 import { Maximize2, Radar } from "lucide-react";
 
-import { CAMPUS_CENTER, LOTS, type LotId, type Tone } from "@/lib/lots";
+import {
+  CAMPUS_BOUNDS,
+  CAMPUS_CENTER,
+  CAMPUS_MIN_ZOOM,
+  LOTS,
+  type LotId,
+  type Tone,
+} from "@/lib/lots";
 import { cn } from "@/lib/utils";
 
 type Basemap = "map" | "satellite";
@@ -15,11 +22,11 @@ interface BasemapConfig {
   dark: boolean;
 }
 
-// With VITE_MAPTILER_KEY set, tiles come from MapTiler (a dark street map and
-// satellite), which is built for app traffic. Without it, or if MapTiler stops
-// serving (bad key, monthly quota), the map falls back to the keyless public
-// OpenStreetMap and Esri tiles, which are fine for development but may
-// throttle a busy production site.
+// The map uses the keyless public OpenStreetMap and Esri tiles. Those aren't
+// built for app traffic and can throttle or block a busy site, so with
+// VITE_MAPTILER_KEY set, MapTiler takes over for the rest of the visit when
+// they stop serving. Its street map is the light style under the same CSS
+// darkening, so the backup looks like the main map.
 const MAPTILER_KEY: string | undefined = import.meta.env.VITE_MAPTILER_KEY;
 
 const MAPTILER_ATTRIBUTION =
@@ -32,9 +39,9 @@ function maptilerBasemaps(key: string): Record<Basemap, BasemapConfig> {
   return {
     map: {
       label: "Map",
-      url: `https://api.maptiler.com/maps/streets-v2-dark/256/{z}/{x}/{y}{r}.png?key=${k}`,
+      url: `https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}{r}.png?key=${k}`,
       attribution: MAPTILER_ATTRIBUTION,
-      dark: false,
+      dark: true,
     },
     satellite: {
       label: "Satellite",
@@ -108,9 +115,9 @@ export function CampusMap({
   const [basemap, setBasemap] = useState<Basemap>(loadBasemap);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [tilesFailed, setTilesFailed] = useState(false);
-  // Switches to the free tiles for this visit if MapTiler stops serving.
-  const [maptilerFailed, setMaptilerFailed] = useState(false);
-  const usingMaptiler = Boolean(MAPTILER_KEY) && !maptilerFailed;
+  // Switches to MapTiler for this visit if the public tiles stop serving.
+  const [freeTilesFailed, setFreeTilesFailed] = useState(false);
+  const usingMaptiler = Boolean(MAPTILER_KEY) && freeTilesFailed;
 
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -131,6 +138,13 @@ export function CampusMap({
         const map = L.map(container, {
           center: [CAMPUS_CENTER.lat, CAMPUS_CENTER.lng],
           zoom: 16,
+          // Keep students on campus: no panning or zooming out past UTM.
+          maxBounds: [
+            [CAMPUS_BOUNDS.south, CAMPUS_BOUNDS.west],
+            [CAMPUS_BOUNDS.north, CAMPUS_BOUNDS.east],
+          ],
+          maxBoundsViscosity: 1,
+          minZoom: CAMPUS_MIN_ZOOM,
           zoomControl: false,
           // Fractional zoom lets fitBounds spread the pins as far as the box allows.
           zoomSnap: 0.25,
@@ -199,7 +213,7 @@ export function CampusMap({
       .on("tileerror", () => {
         tileErrors += 1;
         if (tileErrors < 4 || tileLoads > 0) return;
-        if (usingMaptiler) setMaptilerFailed(true);
+        if (MAPTILER_KEY && !usingMaptiler) setFreeTilesFailed(true);
         else setTilesFailed(true);
       })
       .on("tileload", () => {
