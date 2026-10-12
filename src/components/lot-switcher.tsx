@@ -5,9 +5,11 @@ interface LotSwitcherProps {
   selected: LotId;
   statusFor: (lot: LotId) => LotStatus;
   onSelect: (lot: LotId) => void;
+  /** False while reports are loading or unreachable: show a dash, not "0". */
+  known?: boolean;
 }
 
-export function LotSwitcher({ selected, statusFor, onSelect }: LotSwitcherProps) {
+export function LotSwitcher({ selected, statusFor, onSelect, known = true }: LotSwitcherProps) {
   return (
     <nav className="lot-switcher" aria-label="Choose a lot">
       {LOTS.map((lot, index) => {
@@ -17,9 +19,13 @@ export function LotSwitcher({ selected, statusFor, onSelect }: LotSwitcherProps)
             key={lot.id}
             type="button"
             className="lot-chip"
-            data-tone={status.tone}
+            data-tone={known ? status.tone : "unknown"}
             aria-pressed={lot.id === selected}
-            aria-label={`${lot.name}, ${TONE_LABEL[status.tone]}, ${status.recentReports} ${status.recentReports === 1 ? "report" : "reports"} in the last 2 hours`}
+            aria-label={
+              known
+                ? `${lot.name}, ${TONE_LABEL[status.tone]}, ${status.recentReports} ${status.recentReports === 1 ? "report" : "reports"} in the last 2 hours`
+                : `${lot.name}, status unknown`
+            }
             onClick={() => onSelect(lot.id)}
           >
             <span className="lot-chip-top">
@@ -32,7 +38,7 @@ export function LotSwitcher({ selected, statusFor, onSelect }: LotSwitcherProps)
               {status.spotted && <span className="spotted-dot" aria-hidden />}
             </span>
             <span className="lot-chip-threat">
-              {status.recentReports}
+              {known ? status.recentReports : "–"}
               <small>/2h</small>
             </span>
             <span className="lot-chip-bar" aria-hidden>

@@ -109,6 +109,16 @@ describe("useLiveCommunity", () => {
     expect(result.current?.leaderboard.find((row) => row.you)?.name).toBe("night_owl");
   });
 
+  it("marks reports unreachable instead of empty when loading fails", async () => {
+    const { client } = fakeSupabase((query) =>
+      query.table === "reports" ? { error: { message: "TypeError: Failed to fetch" } } : {},
+    );
+    const { result } = renderHook(() => useLiveCommunity(client));
+    await waitFor(() => expect(result.current?.loading).toBe(false));
+    expect(result.current?.unreachable).toBe(true);
+    expect(result.current?.sightings).toEqual([]);
+  });
+
   it("surfaces the cooldown as a readable error", async () => {
     const { client } = fakeSupabase((query) => {
       if (query.table === "reports" && query.op === "insert") {

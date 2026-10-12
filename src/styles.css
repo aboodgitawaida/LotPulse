@@ -84,6 +84,10 @@
 [data-tone="high"] {
   --tone: var(--tone-high);
 }
+/* Status not known yet (reports loading or unreachable): neutral, never green. */
+[data-tone="unknown"] {
+  --tone: var(--muted-foreground);
+}
 
 /* ---------------------------------------------------------------------------
    Base
@@ -661,6 +665,13 @@
   line-height: 1.1;
   letter-spacing: -0.02em;
   color: var(--tone-low);
+}
+.live-status[data-unknown="true"] {
+  color: var(--muted-foreground);
+}
+.live-status[data-unknown="true"] .status-dot {
+  background: var(--muted-foreground);
+  box-shadow: none;
 }
 .live-status .status-dot {
   width: 12px;
@@ -2930,4 +2941,15 @@ body::after {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Shown when live reports can't be loaded, so nobody mistakes it for "all clear". */
+.connection-banner {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border: 1px solid color-mix(in oklch, var(--tone-medium) 45%, transparent);
+  border-radius: var(--radius-control);
+  background: color-mix(in oklch, var(--tone-medium) 10%, transparent);
+  color: var(--tone-medium);
+  font-size: 14px;
 }

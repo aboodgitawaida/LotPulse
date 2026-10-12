@@ -18,9 +18,18 @@ interface CloutViewProps {
   reports: Report[];
   badges: Set<BadgeId>;
   leaderboard: LeaderboardRow[];
+  /** Reports couldn't be loaded right now. */
+  unavailable?: boolean;
 }
 
-export function CloutView({ points, rank, reports, badges, leaderboard }: CloutViewProps) {
+export function CloutView({
+  points,
+  rank,
+  reports,
+  badges,
+  leaderboard,
+  unavailable = false,
+}: CloutViewProps) {
   const scouts = Math.max(leaderboard.length, rank);
   const { current, next } = tierFor(points);
   const progress = next ? ((points - current.min) / (next.min - current.min)) * 100 : 100;
@@ -98,7 +107,7 @@ export function CloutView({ points, rank, reports, badges, leaderboard }: CloutV
         </ul>
       </section>
 
-      <Leaderboard rows={leaderboard} limit={50} />
+      <Leaderboard rows={leaderboard} limit={50} unavailable={unavailable} />
 
       <section className="card how-it-works" aria-labelledby="how-title">
         <h2 id="how-title" className="eyebrow">

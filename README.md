@@ -21,6 +21,8 @@ LotPulse isn't affiliated with UTM. For real parking, use UTM's official service
 
 - **Realtime, multi-device.** Reports reach every open page through Supabase Realtime, and
   phones that slept or lost connection catch up when they come back.
+- **Fails safe.** If reports can't be loaded (bad Wi-Fi, an outage), lots show "Unknown" with a
+  banner instead of a false "Clear", and the app retries until it reconnects.
 - **Security enforced by the database, not the browser.** Row level security allows public reads
   of the last 24 hours and inserts only as yourself. A trigger stamps the server time and
   reporter, and enforces a 5-minute per-lot cooldown and 6 reports an hour, so a modified client
