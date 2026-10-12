@@ -45,7 +45,7 @@ export function FocusLot({ lot, status, now, live = false }: FocusLotProps) {
           <p className="metric-detail">
             {lastSighting ? (
               <>
-                Last sighting <strong>{timeAgo(lastSighting.at, now.getTime())}</strong>
+                Last report <strong>{timeAgo(lastSighting.at, now.getTime())}</strong>
                 <span className="metric-sub">
                   by {lastSighting.mine ? "you" : lastSighting.scout}
                 </span>

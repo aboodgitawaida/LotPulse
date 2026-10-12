@@ -25,7 +25,7 @@ export function ActivityFeed({
     <section className="card feed" aria-labelledby="feed-title">
       <header className="card-header">
         <h2 id="feed-title" className="eyebrow">
-          <Activity aria-hidden /> Recent sightings
+          <Activity aria-hidden /> Recent reports
         </h2>
         <span className="live-chip" data-live={live}>
           <span className="status-dot" aria-hidden /> {live ? "Live" : "Not connected"}

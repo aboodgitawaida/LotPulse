@@ -1285,7 +1285,7 @@
 }
 .clout-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
 }
 .clout-stats > div {
@@ -1307,7 +1307,7 @@
 
 .badge-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   padding: 0 20px 20px;
 }
@@ -2705,6 +2705,10 @@ body::after {
   .badge-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     padding: 0 16px 16px;
+  }
+  /* An odd badge out takes the full row instead of leaving a hole. */
+  .badge-grid > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
 
   .lp-field {

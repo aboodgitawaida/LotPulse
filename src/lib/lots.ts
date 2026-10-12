@@ -79,6 +79,15 @@ export const LOTS: readonly Lot[] = [
 
 export const LOT_IDS = LOTS.map((lot) => lot.id);
 export const CAMPUS_CENTER = { lat: 43.548, lng: -79.661 };
+/** The map can't be panned outside this box: the UTM campus with a little margin. */
+export const CAMPUS_BOUNDS = {
+  south: 43.5395,
+  west: -79.672,
+  north: 43.5565,
+  east: -79.6525,
+} as const;
+/** The furthest the map can zoom out, so it stays on campus. */
+export const CAMPUS_MIN_ZOOM = 15;
 
 export function getLot(id: LotId): Lot {
   return LOTS.find((lot) => lot.id === id) ?? LOTS[0]!;

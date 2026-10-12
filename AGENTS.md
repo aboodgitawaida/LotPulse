@@ -14,7 +14,7 @@
 - Reports only ever contain the lot, the time and a self-chosen scout name. Don't add photos, free text or anything that identifies officers or students.
 - `src/lib/lots.ts` is the single source of truth for lot metadata, positions and the risk rule. The map and dashboard read from it.
 - Visual tokens (colors, threat tones, radii) live in `src/styles.css`. Reusable UI belongs in `src/components/`.
-- The campus map uses Leaflet. With `VITE_MAPTILER_KEY` it uses MapTiler (dark streets + satellite, with the required MapTiler/OSM attribution); without a key, or if MapTiler fails, it falls back to OpenStreetMap tiles (darkened via CSS) and Esri satellite. Any new tile host must be added to the CSP `img-src` in `vite.config.ts`. It only renders on the client.
+- The campus map uses Leaflet. It uses OpenStreetMap tiles (darkened via CSS) and Esri satellite; if those fail and `VITE_MAPTILER_KEY` is set, it switches to MapTiler (light streets under the same CSS darkening, plus satellite, with the required MapTiler/OSM attribution). Any new tile host must be added to the CSP `img-src` in `vite.config.ts`. It only renders on the client.
 
 ## Checks
 

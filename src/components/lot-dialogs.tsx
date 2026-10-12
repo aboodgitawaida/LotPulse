@@ -132,7 +132,7 @@ export function ReportDialog({
       }
       icon={<Crosshair />}
       title={`Enforcement at ${lot.name}?`}
-      description="Confirm the sighting to warn every student watching this lot. It shows up on everyone's screen right away."
+      description="Confirm the report to warn every student watching this lot. It shows up on everyone's screen right away."
       summary={[
         { label: "Location", value: `${lot.name} · ${lot.area}` },
         { label: "Reward", value: `+${POINTS_PER_REPORT} clout` },
