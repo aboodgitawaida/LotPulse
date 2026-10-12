@@ -92,6 +92,10 @@ interface StoreValue {
   select: (lot: LotId) => void;
   /** Rejects with a user-facing message (cooldown, rate limit, taken name…). */
   report: (lot: LotId, scoutName?: string, captchaToken?: string) => Promise<Report>;
+  /** Your scout name, if you've picked one. */
+  scoutName: string | null;
+  /** Permanently delete your reports, scout name and anonymous account. */
+  deleteMyData: () => Promise<void>;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -209,6 +213,10 @@ export function StoreProvider({
         const report = await live.report(lot, scoutName, captchaToken);
         refreshNow();
         return report;
+      },
+      scoutName: live?.scoutName ?? null,
+      deleteMyData: async () => {
+        await live?.deleteMyData();
       },
     }),
     [

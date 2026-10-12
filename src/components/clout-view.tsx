@@ -1,4 +1,4 @@
-import { Award, Lock, ShieldCheck, Zap } from "lucide-react";
+import { Award, Lock, ShieldCheck, Trash2, Zap } from "lucide-react";
 
 import { Leaderboard } from "@/components/leaderboard";
 import {
@@ -20,6 +20,8 @@ interface CloutViewProps {
   leaderboard: LeaderboardRow[];
   /** Reports couldn't be loaded right now. */
   unavailable?: boolean;
+  /** Set once you have a scout name, so there's data to delete. */
+  onDeleteData?: (() => void) | undefined;
 }
 
 export function CloutView({
@@ -29,6 +31,7 @@ export function CloutView({
   badges,
   leaderboard,
   unavailable = false,
+  onDeleteData,
 }: CloutViewProps) {
   const scouts = Math.max(leaderboard.length, rank);
   const { current, next } = tierFor(points);
@@ -118,6 +121,11 @@ export function CloutView({
           <li>You can report each lot once every {REPORT_COOLDOWN_MINUTES} minutes, so no spam.</li>
           <li>The leaderboard resets every Monday. Climb the tiers to earn your badges.</li>
         </ul>
+        {onDeleteData && (
+          <button type="button" className="text-button text-button-danger" onClick={onDeleteData}>
+            <Trash2 aria-hidden /> Delete my data
+          </button>
+        )}
       </section>
     </div>
   );

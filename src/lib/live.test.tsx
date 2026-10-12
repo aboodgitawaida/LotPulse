@@ -109,6 +109,31 @@ describe("useLiveCommunity", () => {
     expect(result.current?.leaderboard.find((row) => row.you)?.name).toBe("night_owl");
   });
 
+  it("deletes this scout's data and starts fresh", async () => {
+    const { client, queries } = fakeSupabase((query) =>
+      query.table === "reports" && query.op === "insert"
+        ? { data: { id: "s1", lot_id: "P9", reporter_id: "me", created_at: recent(0) } }
+        : { data: [] },
+    );
+    const { result } = renderHook(() => useLiveCommunity(client));
+    await waitFor(() => expect(result.current?.loading).toBe(false));
+    await act(async () => {
+      await result.current!.report("P9", "night_owl");
+    });
+    expect(result.current?.sightings).toHaveLength(1);
+
+    await act(async () => {
+      await result.current!.deleteMyData();
+    });
+    expect(queries).toContainEqual(expect.objectContaining({ table: "delete_my_data" }));
+    expect(result.current).toMatchObject({
+      userId: null,
+      scoutName: null,
+      myReports: [],
+      sightings: [],
+    });
+  });
+
   it("marks reports unreachable instead of empty when loading fails", async () => {
     const { client } = fakeSupabase((query) =>
       query.table === "reports" ? { error: { message: "TypeError: Failed to fetch" } } : {},

@@ -180,6 +180,30 @@ describe("reports migration", () => {
     expect(rows).toEqual([{ reporter_id: null }]);
   });
 
+  it("lets a scout delete their own data, and only theirs", async () => {
+    await backdate(ALICE, "P9", 1);
+    await backdate(ALICE, "P4", 26 * 60);
+    await backdate(BOB, "P8", 1);
+
+    await as("anon");
+    await expect(db.query("select public.delete_my_data()")).rejects.toThrow(/permission denied/);
+
+    await as("authenticated", ALICE);
+    await db.query("select public.delete_my_data()");
+
+    await as("postgres");
+    const { rows: reports } = await db.query<{ reporter_id: string }>(
+      "select reporter_id from public.reports",
+    );
+    expect(reports).toEqual([{ reporter_id: BOB }]);
+    const { rows: profiles } = await db.query<{ username: string }>(
+      "select username from public.profiles",
+    );
+    expect(profiles).toEqual([{ username: "bob" }]);
+    const { rows: users } = await db.query<{ id: string }>("select id from auth.users");
+    expect(users).toEqual([{ id: BOB }]);
+  });
+
   it("scores the weekly leaderboard at 25 points per report", async () => {
     await backdate(ALICE, "P9", 0);
     await backdate(ALICE, "P4", 0);

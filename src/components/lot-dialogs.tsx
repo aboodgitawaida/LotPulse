@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { BellRing, Crosshair } from "lucide-react";
+import { BellRing, Crosshair, Trash2 } from "lucide-react";
 
 import { TURNSTILE_SITE_KEY, Turnstile } from "@/components/turnstile";
 import { Button } from "@/components/ui/button";
@@ -24,12 +24,16 @@ interface ConfirmDialogProps {
   confirmDisabled?: boolean;
   /** Why the last attempt failed, shown above the buttons. */
   error?: string | null;
+  /** Button text while busy. */
+  busyLabel?: string;
+  /** Red styling for actions that can't be undone. */
+  danger?: boolean;
 }
 
 function ConfirmDialog(props: ConfirmDialogProps) {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="lp-dialog">
+      <DialogContent className="lp-dialog" data-danger={props.danger}>
         <span className="lp-dialog-icon" aria-hidden>
           {props.icon}
         </span>
@@ -67,10 +71,12 @@ function ConfirmDialog(props: ConfirmDialogProps) {
             <Button
               type="submit"
               size="lg"
-              autoFocus={!props.children}
+              variant={props.danger ? "destructive" : "default"}
+              autoFocus={!props.children && !props.danger}
               disabled={props.busy || props.confirmDisabled}
             >
-              {props.confirmIcon} {props.busy ? "Sending…" : props.confirmLabel}
+              {props.confirmIcon}{" "}
+              {props.busy ? (props.busyLabel ?? "Sending…") : props.confirmLabel}
             </Button>
           </div>
         </form>
@@ -168,5 +174,35 @@ export function ReportDialog({
       )}
       {needsCaptcha && <Turnstile key={attempt} onToken={setCaptchaToken} />}
     </ConfirmDialog>
+  );
+}
+
+interface DeleteDataDialogProps {
+  scoutName: string;
+  reports: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  busy: boolean;
+  error: string | null;
+  onConfirm: () => void;
+}
+
+export function DeleteDataDialog({ scoutName, reports, ...rest }: DeleteDataDialogProps) {
+  return (
+    <ConfirmDialog
+      {...rest}
+      danger
+      icon={<Trash2 />}
+      title="Delete your data?"
+      description="This permanently deletes your scout name, every report you've sent and your clout. It can't be undone."
+      summary={[
+        { label: "Scout name", value: scoutName },
+        { label: "Reports this week", value: String(reports) },
+      ]}
+      confirmLabel="Delete"
+      busyLabel="Deleting…"
+      confirmIcon={<Trash2 />}
+      notice="Only this browser can delete this scout. You can pick a new name with your next report."
+    />
   );
 }

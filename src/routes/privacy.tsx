@@ -2,9 +2,6 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { BrandMark } from "@/components/brand-mark";
 
-// Optional: where students can ask for their scout name and reports to be deleted.
-const CONTACT_EMAIL: string | undefined = import.meta.env.VITE_CONTACT_EMAIL;
-
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
@@ -64,15 +61,18 @@ function PrivacyPage() {
           Clearing this site's data forgets them, and you'll get a fresh ID next time.
         </p>
 
-        {CONTACT_EMAIL && (
-          <>
-            <h2>Deleting your data</h2>
-            <p>
-              To have your scout name and reports removed, email{" "}
-              <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> with your scout name.
-            </p>
-          </>
-        )}
+        <h2>Deleting your data</h2>
+        <p>
+          Open the{" "}
+          <Link to="/" search={{ view: "clout" }}>
+            Clout
+          </Link>{" "}
+          tab and tap <strong>Delete my data</strong>. It permanently deletes your scout name, every
+          report you've sent and your anonymous ID, straight away. Only the browser that made the
+          scout can delete it, so nobody can delete yours. If you've cleared this site's data, that
+          ID is already gone from your browser, and your reports drop out of public view after 24
+          hours.
+        </p>
 
         <p className="prose-back">
           <Link to="/" search={{}}>
