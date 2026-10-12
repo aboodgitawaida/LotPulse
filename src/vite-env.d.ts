@@ -7,7 +7,6 @@ interface ImportMetaEnv {
   /** Public site URL for link previews, e.g. https://lotpulse.app. Defaults to the Vercel domain. */
   readonly VITE_SITE_URL?: string;
   /** Shown on the privacy page for data deletion requests. */
-  readonly VITE_CONTACT_EMAIL?: string;
   /** Cloudflare Turnstile site key (public). Its secret goes in Supabase, never here. */
   readonly VITE_TURNSTILE_SITE_KEY?: string;
   /** MapTiler key for production map tiles. Public: restrict it to your domain in MapTiler. */

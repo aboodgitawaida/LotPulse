@@ -10,7 +10,7 @@ import { CloutView } from "@/components/clout-view";
 import { FocusLot } from "@/components/focus-lot";
 import { Hero } from "@/components/hero";
 import { Leaderboard } from "@/components/leaderboard";
-import { ReportDialog } from "@/components/lot-dialogs";
+import { DeleteDataDialog, ReportDialog } from "@/components/lot-dialogs";
 import { LotSwitcher } from "@/components/lot-switcher";
 import { ReportButton } from "@/components/report-button";
 import { Ticker } from "@/components/ticker";
@@ -56,7 +56,7 @@ function Dashboard() {
   const view: View = search.view ?? "radar";
   const navigate = useNavigate({ from: "/" });
   const store = useStore();
-  const [dialog, setDialog] = useState<"report" | "map" | null>(null);
+  const [dialog, setDialog] = useState<"report" | "map" | "delete" | null>(null);
   const [sending, setSending] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
   const live = store.mode === "live";
@@ -98,6 +98,23 @@ function Dashboard() {
     } catch (error) {
       // Keep the dialog open so the reason sits next to the button.
       setReportError(error instanceof Error ? error.message : "Couldn't send the report.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    setSending(true);
+    setReportError(null);
+    try {
+      await store.deleteMyData();
+      setDialog(null);
+      toast.success("Your data was deleted", {
+        description: "Your scout name, reports and clout are gone for good.",
+        duration: 6000,
+      });
+    } catch (error) {
+      setReportError(error instanceof Error ? error.message : "Couldn't delete your data.");
     } finally {
       setSending(false);
     }
@@ -252,6 +269,14 @@ function Dashboard() {
               badges={store.badges}
               leaderboard={store.leaderboard}
               unavailable={store.unreachable}
+              onDeleteData={
+                store.scoutName
+                  ? () => {
+                      setReportError(null);
+                      setDialog("delete");
+                    }
+                  : undefined
+              }
             />
           </>
         )}
@@ -287,6 +312,20 @@ function Dashboard() {
         }}
         onConfirm={confirmReport}
       />
+      {store.scoutName && (
+        <DeleteDataDialog
+          scoutName={store.scoutName}
+          reports={store.reports.length}
+          busy={sending}
+          error={reportError}
+          open={dialog === "delete"}
+          onOpenChange={(open) => {
+            setReportError(null);
+            setDialog(open ? "delete" : null);
+          }}
+          onConfirm={() => void confirmDelete()}
+        />
+      )}
       <Dialog open={dialog === "map"} onOpenChange={(open) => setDialog(open ? "map" : null)}>
         <DialogContent className="map-dialog">
           <DialogTitle className="lp-dialog-title">Campus radar</DialogTitle>

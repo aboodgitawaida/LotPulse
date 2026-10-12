@@ -30,7 +30,9 @@ LotPulse isn't affiliated with UTM. For real parking, use UTM's official service
 - **Abuse protection without accounts.** Anonymous sign-in keeps reporting to one tap; a
   Cloudflare Turnstile check before a scout's first report stops scripted account farms.
 - **Privacy by design.** A report is only a lot, a time and a self-chosen scout name. Older
-  reports drop out of public view after 24 hours, and the leaderboard only exposes totals.
+  reports drop out of public view after 24 hours, the leaderboard only exposes totals, and
+  **Delete my data** wipes a scout's name, reports and account in one tap. Only the browser that
+  owns the anonymous account can call it, so there's no support inbox to trick.
 - **Tested against real Postgres.** Every migration runs in PGlite in the test suite, which
   checks the policies, cooldowns and rate limits; CI runs typecheck, lint, format, tests and a production build on every pull request.
 - **Hardened and fast.** Strict security headers (CSP, frame blocking), a map locked to campus
@@ -85,7 +87,8 @@ key is public by design: in MapTiler, restrict it to your domains.
    - Anyone can read reports from the last 24 hours (older ones only by their reporter).
    - A signed-in user can only insert their own report: the client sends just the `lot_id`, and the
      `guard_report` trigger sets `reporter_id` to the caller and `created_at` to server time.
-   - No updates or deletes from the client.
+   - No updates or deletes from the client, except `delete_my_data()`, which removes only the
+     caller's own reports and account.
    - One report per user per lot every **5 minutes**, and at most 6 an hour.
 
 ### Setting it up
@@ -109,12 +112,12 @@ key is public by design: in MapTiler, restrict it to your domains.
 
 5. **Check it.** `bun run verify:live` signs in anonymously with the publishable key, reports P9,
    reads it back, waits for the Realtime event on a second client, checks the live site was built
-   with the keys, then deletes the test data (set `SUPABASE_SECRET_KEY` in your shell for the
-   cleanup; otherwise it prints the SQL to remove it). It needs the same two variables as the app.
+   with the keys, then deletes its test data through the same `delete_my_data()` function behind
+   the app's **Delete my data** button. It needs only the same two variables as the app. (With
+   Turnstile switched on, anonymous sign-ins need a captcha, so run it before step 7.)
 
 6. **Optional.** `VITE_SITE_URL` sets the absolute URL used in link previews (it defaults to
-   Vercel's production domain), and `VITE_CONTACT_EMAIL` adds a data-deletion contact to
-   `/privacy`.
+   Vercel's production domain).
 7. **Bot check (Cloudflare Turnstile).** Anonymous accounts are free to create, so without a
    captcha one script can make thousands and flood the map. In Cloudflare, add a Turnstile widget
    (Managed mode) for your production hostname, then:

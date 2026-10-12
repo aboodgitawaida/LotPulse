@@ -36,6 +36,8 @@ export interface LiveCommunity {
   myReports: LiveReport[];
   leaderboard: LeaderboardRow[];
   report: (lot: LotId, scoutName?: string, captchaToken?: string) => Promise<LiveReport>;
+  /** Delete this scout's reports, name and anonymous account, then start fresh. */
+  deleteMyData: () => Promise<void>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -327,6 +329,22 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
     [client, scoutName, addSighting, refreshBoard],
   );
 
+  const deleteMyData = useCallback(async () => {
+    const uid = userIdRef.current;
+    if (!client || !uid) return;
+    const { error } = await client.rpc("delete_my_data");
+    if (error) throw new Error(friendlyError(error));
+    // The account is gone on the server; just forget it in this browser.
+    await client.auth.signOut({ scope: "local" });
+    userIdRef.current = null;
+    setUserId(null);
+    setScoutName(null);
+    setMyReports([]);
+    setSightings((previous) => previous.filter((s) => s.userId !== uid));
+    names.current.delete(uid);
+    void refreshBoard();
+  }, [client, refreshBoard]);
+
   const leaderboard = useMemo(
     () =>
       rankLeaderboard(
@@ -346,8 +364,29 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
   return useMemo(
     () =>
       client
-        ? { loading, unreachable, userId, scoutName, sightings, myReports, leaderboard, report }
+        ? {
+            loading,
+            unreachable,
+            userId,
+            scoutName,
+            sightings,
+            myReports,
+            leaderboard,
+            report,
+            deleteMyData,
+          }
         : null,
-    [client, loading, unreachable, userId, scoutName, sightings, myReports, leaderboard, report],
+    [
+      client,
+      loading,
+      unreachable,
+      userId,
+      scoutName,
+      sightings,
+      myReports,
+      leaderboard,
+      report,
+      deleteMyData,
+    ],
   );
 }

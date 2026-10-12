@@ -360,6 +360,47 @@ $lotpulse_migration$;
 end
 $step$;
 
+-- 20261012000000_delete_my_data.sql -------------------------------------------
+do $step$
+begin
+  if not exists (
+    select 1 from supabase_migrations.schema_migrations where version = '20261012000000'
+  ) then
+    execute $lotpulse_migration$
+-- LotPulse: scouts delete their own data from the app.
+--
+-- A scout is an anonymous sign-in that only their browser holds, so the
+-- request itself proves who they are; no email or support inbox needed.
+-- delete_my_data() removes the caller's reports and their account (the
+-- profile goes with it via on delete cascade). It only ever touches
+-- auth.uid(), so nobody can delete someone else.
+
+create function public.delete_my_data()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+begin
+  if me is null then
+    raise exception 'not_signed_in: nothing to delete';
+  end if;
+  delete from public.reports where reporter_id = me;
+  delete from auth.users where id = me;
+end;
+$$;
+
+revoke all on function public.delete_my_data() from public, anon;
+grant execute on function public.delete_my_data() to authenticated;
+$lotpulse_migration$;
+    insert into supabase_migrations.schema_migrations (version, name)
+    values ('20261012000000', 'delete_my_data');
+  end if;
+end
+$step$;
+
 -- Live updates: make sure every new report is broadcast over Realtime.
 do $realtime$
 begin

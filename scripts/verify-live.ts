@@ -3,23 +3,19 @@
 //
 //   VITE_SUPABASE_URL=https://xxxx.supabase.co \
 //   VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_... \
-//   SUPABASE_SECRET_KEY=sb_secret_... \
 //   bun scripts/verify-live.ts [site URL]
 //
 // 1. A "watcher" (like a second phone, not signed in) subscribes to Realtime.
 // 2. A "reporter" signs in anonymously, picks a scout name and reports P9.
 // 3. The report is read back, and the watcher must hear it within 10 seconds.
 // 4. The live site must be built with these credentials ("Live", not "Not connected").
-// 5. Cleanup. Clients can never delete reports (that's the point of the RLS
-//    rules), so this needs SUPABASE_SECRET_KEY (Project Settings → API Keys →
-//    Secret keys). It's only read from your shell, never stored. Without it
-//    the script prints the SQL to run in the SQL Editor instead.
+// 5. Cleanup. The test scout deletes itself with delete_my_data(), the same
+//    "Delete my data" button students use, so no secret key is needed.
 import { createClient } from "@supabase/supabase-js";
 
-const SITE = process.argv[2] ?? "https://lot-spotter-ai.vercel.app";
+const SITE = process.argv[2] ?? "https://lotpulse-utm.vercel.app";
 const url = process.env["VITE_SUPABASE_URL"];
 const key = process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ?? process.env["VITE_SUPABASE_ANON_KEY"];
-const secret = process.env["SUPABASE_SECRET_KEY"] ?? process.env["SUPABASE_SERVICE_ROLE_KEY"];
 const REALTIME_TIMEOUT_MS = 10_000;
 
 if (!url || !key) {
@@ -155,23 +151,16 @@ try {
   fail(`Couldn't load ${SITE}: ${(error as Error).message}`);
 }
 
-// 5. Cleanup.
+// 5. Cleanup: the test scout deletes its own report, name and account.
 if (userId) {
-  if (secret) {
-    const admin = createClient(url, secret, options);
-    const reports = await admin.from("reports").delete().eq("reporter_id", userId);
-    // Deleting the user also deletes its scout name (profiles cascade).
-    const user = await admin.auth.admin.deleteUser(userId);
-    if (reports.error || user.error) {
-      fail(`Cleanup failed: ${reports.error?.message ?? user.error?.message}`);
-    } else pass("Test report, scout name and anonymous user deleted");
-  } else {
+  const { error } = await reporter.rpc("delete_my_data");
+  if (error) {
+    fail(`Cleanup failed: ${error.message}. Remove it in the SQL Editor:`);
     console.log(
-      "\nNo SUPABASE_SECRET_KEY, so the test data is still there. Remove it in the SQL Editor:\n\n" +
-        `  delete from public.reports where reporter_id = '${userId}';\n` +
+      `\n  delete from public.reports where reporter_id = '${userId}';\n` +
         `  delete from auth.users where id = '${userId}';\n`,
     );
-  }
+  } else pass("Test report, scout name and anonymous user deleted");
 }
 
 console.log(failures ? `\n${failures} check(s) failed.` : "\nAll checks passed. LotPulse is live.");

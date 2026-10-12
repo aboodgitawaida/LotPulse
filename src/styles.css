@@ -293,6 +293,9 @@
   width: 15px;
   height: 15px;
 }
+.text-button-danger:hover {
+  color: var(--tone-high);
+}
 
 .tone-pill {
   display: inline-flex;
@@ -1411,6 +1414,10 @@
   border-radius: 14px;
   background: color-mix(in oklch, var(--primary) 15%, transparent);
   color: var(--primary);
+}
+.lp-dialog[data-danger="true"] .lp-dialog-icon {
+  background: color-mix(in oklch, var(--tone-high) 15%, transparent);
+  color: var(--tone-high);
 }
 .lp-dialog-icon svg {
   width: 26px;

@@ -70,6 +70,7 @@ export function fakeSupabase(respond: (query: Query) => Result) {
     auth: {
       getSession: async () => ({ data: { session: null } }),
       signInAnonymously: async () => ({ data: { user: { id: "me" } }, error: null }),
+      signOut: async () => ({ error: null }),
     },
   };
 
