@@ -129,7 +129,7 @@ function Dashboard() {
               subtitle={
                 <>
                   Live enforcement reports from students this {weekday}. Pick a lot, check the
-                  latest sighting, warn the campus.
+                  latest report, warn the campus.
                 </>
               }
               aside={
@@ -206,7 +206,7 @@ function Dashboard() {
             <Hero
               eyebrow="Clout system"
               lines={["Good scouts", "get clout."]}
-              subtitle="Every sighting helps a classmate dodge a ticket."
+              subtitle="Every report helps a classmate dodge a ticket."
             />
             <CloutView
               points={store.points}

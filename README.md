@@ -1,16 +1,38 @@
 # LotPulse
 
-Live parking enforcement reports for students at the **University of Toronto Mississauga (UTM)**.
+**Live parking enforcement reports for students at the University of Toronto Mississauga.**
 
-LotPulse shows, for every campus lot:
+**[lotpulse-utm.vercel.app](https://lotpulse-utm.vercel.app)**
 
-- **Last sighting**: when a student last reported enforcement there, and who (by scout name).
-- **Risk level**: how many reports the lot got in the last 2 hours.
+![LotPulse: know before you park at UTM](public/og.png)
+
+Think Waze's police reports, for one campus's parking lots. A student spots enforcement, taps
+once, and every student watching that lot sees it within a second or two. Each lot shows:
+
+- **Last report**: when a student last reported enforcement there, and who (by scout name).
+- **Risk level**: how many reports the lot got in the last 2 hours (clear, caution, high risk).
 - **One-tap reporting**: spot an enforcer, warn campus, earn clout.
 - **Clout system**: a weekly scout leaderboard and badges.
 
 Everything shown comes from real student reports. Reports are crowd-sourced and unverified.
 LotPulse isn't affiliated with UTM. For real parking, use UTM's official services.
+
+## Engineering highlights
+
+- **Realtime, multi-device.** Reports reach every open page through Supabase Realtime, and
+  phones that slept or lost connection catch up when they come back.
+- **Security enforced by the database, not the browser.** Row level security allows public reads
+  of the last 24 hours and inserts only as yourself. A trigger stamps the server time and
+  reporter, and enforces a 5-minute per-lot cooldown and 6 reports an hour, so a modified client
+  can't get around any of it.
+- **Abuse protection without accounts.** Anonymous sign-in keeps reporting to one tap; a
+  Cloudflare Turnstile check before a scout's first report stops scripted account farms.
+- **Privacy by design.** A report is only a lot, a time and a self-chosen scout name. Older
+  reports drop out of public view after 24 hours, and the leaderboard only exposes totals.
+- **Tested against real Postgres.** Every migration runs in PGlite in the test suite, which
+  checks the policies, cooldowns and rate limits; CI runs typecheck, lint, format, tests and a production build on every pull request.
+- **Hardened and fast.** Strict security headers (CSP, frame blocking), a map locked to campus
+  with automatic tile-provider fallback, and animations tuned to hold 60 fps on mid-range phones.
 
 ## Getting started
 
@@ -46,10 +68,10 @@ key is public by design: in MapTiler, restrict it to your domains.
    says why (no connection, 5-minute cooldown, name taken…).
 2. **Live updates.** Every open page subscribes to **Supabase Realtime** inserts on `reports`.
    A new report lands on every device within a second or two, with no refresh, updating the map
-   pins, lot cards, "Last sighting" and the feed. Phones that were asleep or lost their connection
+   pins, lot cards, "Last report" and the feed. Phones that were asleep or lost their connection
    refetch on wake and on reconnect.
 3. **What the numbers mean.**
-   - _Last sighting X min ago_: the newest report for that lot (from the last 24 hours), or
+   - _Last report X min ago_: the newest report for that lot (from the last 24 hours), or
      "No recent reports".
    - _Risk_: reports for that lot in the last **2 hours**. **0 = clear** (green), **1 = caution**
      (amber), **2 or more = high risk** (red). That's the whole rule (`riskFor` in

@@ -27,7 +27,7 @@ export function Leaderboard({ rows, limit = 3 }: LeaderboardProps) {
         </h2>
       </header>
       {visible.length === 0 && (
-        <p className="card-empty">No sightings this week yet. Be the first scout on the board.</p>
+        <p className="card-empty">No reports this week yet. Be the first scout on the board.</p>
       )}
       <ol className="leaderboard-list">
         {visible.map((row, index) => (

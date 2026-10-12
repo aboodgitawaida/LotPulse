@@ -35,11 +35,11 @@ function PrivacyPage() {
 
         <h2>No account, no email</h2>
         <p>
-          Browsing needs nothing. When you send your first sighting, your browser gets an anonymous
-          ID and you pick a public scout name. Please don't use your real name.
+          Browsing needs nothing. When you send your first report, your browser gets an anonymous ID
+          and you pick a public scout name. Please don't use your real name.
         </p>
 
-        <h2>What a sighting contains</h2>
+        <h2>What a report contains</h2>
         <p>
           A lot, a time and your scout name. Nothing else: no location, photos, notes, or anything
           about parking officers.
@@ -47,13 +47,13 @@ function PrivacyPage() {
 
         <h2>Who can see it</h2>
         <p>
-          Everyone sees sightings from the last 24 hours. After that, only you can see your own, and
+          Everyone sees reports from the last 24 hours. After that, only you can see your own, and
           they just count towards the weekly leaderboard, which shows scout names and points.
         </p>
 
         <h2>Where it lives</h2>
         <p>
-          Sightings and scout names are stored with Supabase, and the site is hosted on Vercel; both
+          Reports and scout names are stored with Supabase, and the site is hosted on Vercel; both
           keep standard server logs, such as IP addresses. Map tiles load straight from
           OpenStreetMap and Esri (or MapTiler as a backup), and your first report runs a Cloudflare
           Turnstile bot check, so those services see your IP address too. There are no ads,
@@ -68,7 +68,7 @@ function PrivacyPage() {
           <>
             <h2>Deleting your data</h2>
             <p>
-              To have your scout name and sightings removed, email{" "}
+              To have your scout name and reports removed, email{" "}
               <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> with your scout name.
             </p>
           </>
