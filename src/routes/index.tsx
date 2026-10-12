@@ -60,17 +60,23 @@ function Dashboard() {
   const [sending, setSending] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
   const live = store.mode === "live";
+  // Only claim a lot is clear once reports have actually loaded.
+  const known = live && !store.loading && !store.unreachable;
+  const unknownReason = !live
+    ? "Not connected to live reports"
+    : store.unreachable
+      ? "Can't reach live reports right now"
+      : "Checking for reports…";
 
   const lot = getLot(store.selected);
   const status = store.statusFor(lot.id);
   const { statusFor } = store;
   const tones = useMemo(
     () =>
-      Object.fromEntries(LOTS.map((item) => [item.id, statusFor(item.id).tone])) as Record<
-        LotId,
-        Tone
-      >,
-    [statusFor],
+      Object.fromEntries(
+        LOTS.map((item) => [item.id, known ? statusFor(item.id).tone : "unknown"]),
+      ) as Record<LotId, Tone | "unknown">,
+    [statusFor, known],
   );
 
   const selectLot = (id: LotId) => {
@@ -105,10 +111,14 @@ function Dashboard() {
   const spottedCount = statuses.filter((item) => item.status.spotted).length;
   const tickerItems = [
     { label: live ? "Live scout network" : "Not connected" },
-    ...statuses.map(({ lot: item, status: itemStatus }) => ({
-      label: `${item.short} · ${TONE_LABEL[itemStatus.tone]}${itemStatus.recentReports > 0 ? ` · ${itemStatus.recentReports} in 2h` : ""}`,
-      tone: itemStatus.tone,
-    })),
+    ...statuses.map(({ lot: item, status: itemStatus }) =>
+      known
+        ? {
+            label: `${item.short} · ${TONE_LABEL[itemStatus.tone]}${itemStatus.recentReports > 0 ? ` · ${itemStatus.recentReports} in 2h` : ""}`,
+            tone: itemStatus.tone,
+          }
+        : { label: `${item.short} · –` },
+    ),
     { label: "Report it, earn clout" },
   ];
 
@@ -134,21 +144,26 @@ function Dashboard() {
               }
               aside={
                 <>
-                  <span className="demo-chip" data-live={live}>
-                    {live ? "Live reports" : "Not connected"}
+                  <span className="demo-chip" data-live={known}>
+                    {!live ? "Not connected" : store.unreachable ? "Reconnecting…" : "Live reports"}
                   </span>
                   <button
                     type="button"
                     className="hero-stat"
-                    data-tone={hottest.status.tone}
+                    data-tone={known ? hottest.status.tone : undefined}
                     onClick={() => selectLot(hottest.lot.id)}
                   >
                     <span className="hero-stat-value">
-                      {hottest.status.recentReports}
+                      {known ? hottest.status.recentReports : "–"}
                       <small>/2h</small>
                     </span>
                     <span className="hero-stat-label">
-                      {spottedCount === 0 ? (
+                      {!known ? (
+                        <>
+                          Lot status · <strong>unknown</strong>
+                          <span>{unknownReason}</span>
+                        </>
+                      ) : spottedCount === 0 ? (
                         <>
                           No recent reports · <strong>all lots clear</strong>
                         </>
@@ -157,11 +172,13 @@ function Dashboard() {
                           Most reported · <strong>{hottest.lot.name}</strong>
                         </>
                       )}
-                      <span>
-                        {spottedCount === 0
-                          ? "Nothing in the last 2 hours"
-                          : `${spottedCount} ${spottedCount === 1 ? "lot" : "lots"} reported in the last 2 hours`}
-                      </span>
+                      {known && (
+                        <span>
+                          {spottedCount === 0
+                            ? "Nothing in the last 2 hours"
+                            : `${spottedCount} ${spottedCount === 1 ? "lot" : "lots"} reported in the last 2 hours`}
+                        </span>
+                      )}
                     </span>
                   </button>
                 </>
@@ -170,11 +187,30 @@ function Dashboard() {
 
             <Ticker items={tickerItems} />
 
-            <LotSwitcher selected={lot.id} statusFor={store.statusFor} onSelect={selectLot} />
+            {live && store.unreachable && (
+              <p className="connection-banner" role="status">
+                Can't reach live reports right now, so lot statuses are unknown. Retrying
+                automatically.
+              </p>
+            )}
+
+            <LotSwitcher
+              selected={lot.id}
+              statusFor={store.statusFor}
+              onSelect={selectLot}
+              known={known}
+            />
 
             <div className="dashboard-grid">
               <div className="dashboard-main">
-                <FocusLot lot={lot} status={status} now={store.now} live={live} />
+                <FocusLot
+                  lot={lot}
+                  status={status}
+                  now={store.now}
+                  live={live}
+                  known={known}
+                  unknownReason={unknownReason}
+                />
                 <ReportButton
                   lot={lot}
                   cooldownMinutes={status.cooldownMinutes}
@@ -196,8 +232,9 @@ function Dashboard() {
                   onSelect={selectLot}
                   live={live}
                   loading={store.loading}
+                  unreachable={store.unreachable}
                 />
-                <Leaderboard rows={store.leaderboard} />
+                <Leaderboard rows={store.leaderboard} unavailable={store.unreachable} />
               </aside>
             </div>
           </>
@@ -214,6 +251,7 @@ function Dashboard() {
               reports={store.reports}
               badges={store.badges}
               leaderboard={store.leaderboard}
+              unavailable={store.unreachable}
             />
           </>
         )}

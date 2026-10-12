@@ -7,6 +7,8 @@ interface LeaderboardProps {
   rows: LeaderboardRow[];
   /** How many rows to show above "You" (you are always shown). */
   limit?: number;
+  /** Reports couldn't be loaded, so an empty board doesn't mean nobody reported. */
+  unavailable?: boolean;
 }
 
 function initials(name: string) {
@@ -14,7 +16,7 @@ function initials(name: string) {
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? parts[0]?.[1] ?? "")).toUpperCase();
 }
 
-export function Leaderboard({ rows, limit = 3 }: LeaderboardProps) {
+export function Leaderboard({ rows, limit = 3, unavailable = false }: LeaderboardProps) {
   const top = rows.slice(0, limit);
   const you = rows.find((row) => row.you);
   const visible = you && !top.includes(you) ? [...top, you] : top;
@@ -27,7 +29,11 @@ export function Leaderboard({ rows, limit = 3 }: LeaderboardProps) {
         </h2>
       </header>
       {visible.length === 0 && (
-        <p className="card-empty">No reports this week yet. Be the first scout on the board.</p>
+        <p className="card-empty">
+          {unavailable
+            ? "Can't load the leaderboard right now."
+            : "No reports this week yet. Be the first scout on the board."}
+        </p>
       )}
       <ol className="leaderboard-list">
         {visible.map((row, index) => (

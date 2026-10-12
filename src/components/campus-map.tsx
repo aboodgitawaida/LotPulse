@@ -84,13 +84,14 @@ type Leaflet = typeof import("leaflet");
 
 interface CampusMapProps {
   selected: LotId;
-  tones: Record<LotId, Tone>;
+  /** "unknown" while reports are loading or unreachable. */
+  tones: Record<LotId, Tone | "unknown">;
   onSelect: (lot: LotId) => void;
   onExpand?: () => void;
   expanded?: boolean;
 }
 
-function pinIcon(L: Leaflet, label: string, tone: Tone, selected: boolean): DivIcon {
+function pinIcon(L: Leaflet, label: string, tone: Tone | "unknown", selected: boolean): DivIcon {
   return L.divIcon({
     className: "map-pin-wrapper",
     html: `<span class="map-pin" data-tone="${tone}" data-selected="${selected}"><span class="map-pin-ring"></span>${label}</span>`,

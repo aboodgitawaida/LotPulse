@@ -10,9 +10,20 @@ interface FocusLotProps {
   status: LotStatus;
   now: Date;
   live?: boolean;
+  /** False while reports are loading or unreachable: don't claim the lot is clear. */
+  known?: boolean;
+  /** Shown instead of the status while it isn't known. */
+  unknownReason?: string;
 }
 
-export function FocusLot({ lot, status, now, live = false }: FocusLotProps) {
+export function FocusLot({
+  lot,
+  status,
+  now,
+  live = false,
+  known = true,
+  unknownReason = "Checking for reports…",
+}: FocusLotProps) {
   const { lastSighting } = status;
 
   return (
@@ -38,12 +49,19 @@ export function FocusLot({ lot, status, now, live = false }: FocusLotProps) {
           <span className="eyebrow">
             <Radio aria-hidden /> Live status
           </span>
-          <p className="live-status" data-spotted={status.spotted} aria-live="polite">
+          <p
+            className="live-status"
+            data-spotted={known && status.spotted}
+            data-unknown={!known}
+            aria-live="polite"
+          >
             <span className="status-dot" aria-hidden />
-            {status.spotted ? "Spotted" : "Clear"}
+            {!known ? "Unknown" : status.spotted ? "Spotted" : "Clear"}
           </p>
           <p className="metric-detail">
-            {lastSighting ? (
+            {!known ? (
+              unknownReason
+            ) : lastSighting ? (
               <>
                 Last report <strong>{timeAgo(lastSighting.at, now.getTime())}</strong>
                 <span className="metric-sub">
@@ -61,16 +79,21 @@ export function FocusLot({ lot, status, now, live = false }: FocusLotProps) {
             <Activity aria-hidden /> Reports · last 2h
           </span>
           <div className="threat-readout">
-            <ThreatGauge count={status.recentReports} tone={status.tone} />
+            <ThreatGauge
+              count={known ? status.recentReports : null}
+              tone={known ? status.tone : "unknown"}
+            />
             <div className="threat-copy">
-              <span className="tone-pill" data-tone={status.tone}>
-                {TONE_LABEL[status.tone]}
+              <span className="tone-pill" data-tone={known ? status.tone : "unknown"}>
+                {known ? TONE_LABEL[status.tone] : "Unknown"}
               </span>
               <p className="outlook">
                 <strong>
-                  {status.recentReports === 0
-                    ? "No recent reports"
-                    : `${status.recentReports} ${status.recentReports === 1 ? "report" : "reports"} in the last 2 hours`}
+                  {!known
+                    ? unknownReason
+                    : status.recentReports === 0
+                      ? "No recent reports"
+                      : `${status.recentReports} ${status.recentReports === 1 ? "report" : "reports"} in the last 2 hours`}
                 </strong>
                 <span>0 clear · 1 caution · 2+ high risk</span>
               </p>

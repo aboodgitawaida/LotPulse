@@ -27,6 +27,8 @@ export interface LiveReport {
 
 export interface LiveCommunity {
   loading: boolean;
+  /** The last load failed (offline, Supabase down). Retried automatically. */
+  unreachable: boolean;
   userId: string | null;
   scoutName: string | null;
   sightings: LiveSighting[];
@@ -106,9 +108,12 @@ const REPORT_COLUMNS = "id, lot_id, reporter_id, created_at";
  * events are batched and spread out instead of all hitting the API at once.
  */
 const BOARD_REFRESH_MS = 3_000;
+/** How long to wait before retrying after reports failed to load. */
+const RETRY_MS = 15_000;
 
 export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity | null {
   const [loading, setLoading] = useState(true);
+  const [unreachable, setUnreachable] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [scoutName, setScoutName] = useState<string | null>(null);
   const [sightings, setSightings] = useState<LiveSighting[]>([]);
@@ -145,6 +150,7 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
     if (!client) return;
     let cancelled = false;
     let boardTimer: number | undefined;
+    let retryTimer: number | undefined;
     const scheduleBoard = () => {
       if (boardTimer !== undefined) return;
       boardTimer = window.setTimeout(
@@ -178,6 +184,8 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
         refreshBoard(),
       ]);
       if (cancelled) return;
+      // A failed load is not "no reports": never let it show lots as clear.
+      if (feed.error) throw feed.error;
 
       userIdRef.current = uid;
       setUserId(uid);
@@ -204,10 +212,21 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
       setLoading(false);
     };
 
-    const reload = () =>
-      void load().catch(() => {
-        if (!cancelled) setLoading(false);
-      });
+    const reload = () => {
+      window.clearTimeout(retryTimer);
+      retryTimer = undefined;
+      void load().then(
+        () => {
+          if (!cancelled) setUnreachable(false);
+        },
+        () => {
+          if (cancelled) return;
+          setLoading(false);
+          setUnreachable(true);
+          retryTimer = window.setTimeout(reload, RETRY_MS);
+        },
+      );
+    };
     reload();
 
     // Phones suspend background tabs and realtime misses events while asleep,
@@ -262,6 +281,7 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
     return () => {
       cancelled = true;
       window.clearTimeout(boardTimer);
+      window.clearTimeout(retryTimer);
       document.removeEventListener("visibilitychange", onVisibility);
       void client.removeChannel(channel);
     };
@@ -325,7 +345,9 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
 
   return useMemo(
     () =>
-      client ? { loading, userId, scoutName, sightings, myReports, leaderboard, report } : null,
-    [client, loading, userId, scoutName, sightings, myReports, leaderboard, report],
+      client
+        ? { loading, unreachable, userId, scoutName, sightings, myReports, leaderboard, report }
+        : null,
+    [client, loading, unreachable, userId, scoutName, sightings, myReports, leaderboard, report],
   );
 }

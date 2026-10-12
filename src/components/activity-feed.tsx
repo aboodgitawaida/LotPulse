@@ -11,6 +11,8 @@ interface ActivityFeedProps {
   limit?: number;
   live?: boolean;
   loading?: boolean;
+  /** Reports couldn't be loaded; retrying. */
+  unreachable?: boolean;
 }
 
 export function ActivityFeed({
@@ -20,6 +22,7 @@ export function ActivityFeed({
   limit = 5,
   live = false,
   loading = false,
+  unreachable = false,
 }: ActivityFeedProps) {
   return (
     <section className="card feed" aria-labelledby="feed-title">
@@ -27,13 +30,18 @@ export function ActivityFeed({
         <h2 id="feed-title" className="eyebrow">
           <Activity aria-hidden /> Recent reports
         </h2>
-        <span className="live-chip" data-live={live}>
-          <span className="status-dot" aria-hidden /> {live ? "Live" : "Not connected"}
+        <span className="live-chip" data-live={live && !unreachable}>
+          <span className="status-dot" aria-hidden />{" "}
+          {!live ? "Not connected" : unreachable ? "Reconnecting" : "Live"}
         </span>
       </header>
       {sightings.length === 0 && (
         <p className="card-empty">
-          {loading ? "Loading reports…" : "No reports in the last 24 hours. Quiet day so far."}
+          {unreachable
+            ? "Can't reach live reports right now. Retrying…"
+            : loading
+              ? "Loading reports…"
+              : "No reports in the last 24 hours. Quiet day so far."}
         </p>
       )}
       <ol className="feed-list">

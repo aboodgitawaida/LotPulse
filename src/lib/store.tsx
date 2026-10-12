@@ -74,6 +74,8 @@ interface StoreValue {
   mode: "live" | "offline";
   /** True until the first reports load. */
   loading: boolean;
+  /** Reports couldn't be loaded (offline, Supabase down); retrying. */
+  unreachable: boolean;
   now: Date;
   selected: LotId;
   /** Your reports this week. */
@@ -188,6 +190,7 @@ export function StoreProvider({
     () => ({
       mode: live ? "live" : "offline",
       loading: live?.loading ?? false,
+      unreachable: live?.unreachable ?? false,
       now,
       selected,
       reports,
