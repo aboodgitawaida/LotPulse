@@ -32,7 +32,11 @@ export default tseslint.config(
           ],
         },
       ],
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      // useStore sits next to its provider on purpose.
+      "react-refresh/only-export-components": [
+        "warn",
+        { allowConstantExport: true, allowExportNames: ["useStore"] },
+      ],
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
