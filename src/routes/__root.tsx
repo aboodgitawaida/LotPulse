@@ -7,8 +7,9 @@ import {
   useRouter,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
+import { BrandMark } from "@/components/brand-mark";
 import appCss from "../styles.css?url";
 
 const SITE_TITLE = "LotPulse · UTM Parking Radar";
@@ -49,6 +50,7 @@ export const Route = createRootRoute({
       { rel: "icon", href: "/favicon-32.png", sizes: "32x32", type: "image/png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
+      ...(SITE_URL ? [{ rel: "canonical", href: `${SITE_URL}/` }] : []),
     ],
   }),
   shellComponent: RootShell,
@@ -80,8 +82,17 @@ function StatusPage({
   body: string;
   children: ReactNode;
 }) {
+  useEffect(() => {
+    document.title = `${title} · LotPulse`;
+  }, [title]);
   return (
     <main className="status-page">
+      <span className="status-page-brand" aria-hidden>
+        <BrandMark className="brand-mark" />
+        <span className="brand-word">
+          Lot<span>Pulse</span>
+        </span>
+      </span>
       <h1>{title}</h1>
       <p>{body}</p>
       <div className="status-page-actions">{children}</div>

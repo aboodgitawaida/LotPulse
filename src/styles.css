@@ -1573,6 +1573,12 @@
   padding: 24px;
   text-align: center;
 }
+.status-page-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
 .status-page h1 {
   font-family: var(--font-display);
   font-size: 32px;

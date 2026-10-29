@@ -47,6 +47,10 @@ function PrivacyPage() {
           Everyone sees reports from the last 24 hours. After that, only you can see your own, and
           they just count towards the weekly leaderboard, which shows scout names and points.
         </p>
+        <p>
+          Reports are public while they're visible, so anyone could save which lots a scout name
+          reported and when. That's another reason to pick a name nobody can trace back to you.
+        </p>
 
         <h2>Where it lives</h2>
         <p>
