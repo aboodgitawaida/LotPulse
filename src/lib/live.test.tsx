@@ -2,13 +2,13 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { rankLeaderboard } from "./community";
-import { friendlyError, parseSighting, useLiveCommunity, weekStart } from "./live";
+import { friendlyError, parseReport, useLiveCommunity, weekStart } from "./live";
 import { fakeSupabase, minutesAgo as recent } from "@/test/fake-supabase";
 
 describe("live helpers", () => {
   it("parses API rows and rejects bad ones", () => {
     expect(
-      parseSighting({
+      parseReport({
         id: "a",
         lot_id: "P4",
         reporter_id: "u",
@@ -16,17 +16,17 @@ describe("live helpers", () => {
         profiles: { username: "deck_runner" },
       }),
     ).toMatchObject({ id: "a", lot: "P4", scout: "deck_runner" });
-    expect(parseSighting({ id: "a", lot_id: "P99", reporter_id: "u", created_at: "x" })).toBeNull();
+    expect(parseReport({ id: "a", lot_id: "P99", reporter_id: "u", created_at: "x" })).toBeNull();
     // Reports whose scout deleted their profile have no reporter.
     expect(
-      parseSighting({
+      parseReport({
         id: "b",
         lot_id: "P9",
         reporter_id: null,
         created_at: "2026-10-05T12:00:00Z",
       }),
     ).toMatchObject({ id: "b", userId: "", scout: "scout" });
-    expect(parseSighting(null)).toBeNull();
+    expect(parseReport(null)).toBeNull();
   });
 
   it("explains database errors in plain language", () => {
@@ -88,7 +88,7 @@ describe("useLiveCommunity", () => {
 
     const { result } = renderHook(() => useLiveCommunity(client));
     await waitFor(() => expect(result.current?.loading).toBe(false));
-    expect(result.current?.sightings.map((s) => s.scout)).toEqual(["deck_runner"]);
+    expect(result.current?.feed.map((s) => s.scout)).toEqual(["deck_runner"]);
     expect(result.current?.scoutName).toBeNull();
 
     await expect(result.current!.report("P9")).rejects.toThrow(/scout name/);
@@ -105,7 +105,7 @@ describe("useLiveCommunity", () => {
     );
     expect(result.current?.scoutName).toBe("night_owl");
     expect(result.current?.myReports).toEqual([expect.objectContaining({ id: "s2", lot: "P9" })]);
-    expect(result.current?.sightings[0]).toMatchObject({ id: "s2", scout: "night_owl" });
+    expect(result.current?.feed[0]).toMatchObject({ id: "s2", scout: "night_owl" });
     expect(result.current?.leaderboard.find((row) => row.you)?.name).toBe("night_owl");
   });
 
@@ -120,7 +120,7 @@ describe("useLiveCommunity", () => {
     await act(async () => {
       await result.current!.report("P9", "night_owl");
     });
-    expect(result.current?.sightings).toHaveLength(1);
+    expect(result.current?.feed).toHaveLength(1);
 
     await act(async () => {
       await result.current!.deleteMyData();
@@ -130,7 +130,7 @@ describe("useLiveCommunity", () => {
       userId: null,
       scoutName: null,
       myReports: [],
-      sightings: [],
+      feed: [],
     });
   });
 
@@ -141,7 +141,7 @@ describe("useLiveCommunity", () => {
     const { result } = renderHook(() => useLiveCommunity(client));
     await waitFor(() => expect(result.current?.loading).toBe(false));
     expect(result.current?.unreachable).toBe(true);
-    expect(result.current?.sightings).toEqual([]);
+    expect(result.current?.feed).toEqual([]);
   });
 
   it("surfaces the cooldown as a readable error", async () => {
@@ -164,7 +164,7 @@ describe("useLiveCommunity", () => {
     });
     const { result } = renderHook(() => useLiveCommunity(client));
     await waitFor(() => expect(result.current?.loading).toBe(false));
-    expect(result.current?.sightings).toEqual([]);
+    expect(result.current?.feed).toEqual([]);
 
     act(() =>
       emitInsert("reports", {
@@ -175,7 +175,7 @@ describe("useLiveCommunity", () => {
       }),
     );
     await waitFor(() =>
-      expect(result.current?.sightings).toEqual([
+      expect(result.current?.feed).toEqual([
         expect.objectContaining({ id: "s9", lot: "P9", scout: "deck_runner" }),
       ]),
     );
@@ -189,6 +189,40 @@ describe("useLiveCommunity", () => {
         created_at: recent(0),
       }),
     );
-    await waitFor(() => expect(result.current?.sightings).toHaveLength(1));
+    await waitFor(() => expect(result.current?.feed).toHaveLength(1));
+  });
+
+  it("reuses a saved scout when reporting before reports have loaded", async () => {
+    // Reports never load (the API is down), but the browser still has its sign-in.
+    const { client, queries, signIns } = fakeSupabase(
+      (query) => {
+        if (query.table === "reports" && query.op === "select") {
+          return { error: { message: "TypeError: Failed to fetch" } };
+        }
+        if (query.table === "profiles") return { data: { username: "night_owl" } };
+        if (query.table === "reports" && query.op === "insert") {
+          return { data: { id: "r1", lot_id: "P8", reporter_id: "saved", created_at: recent(0) } };
+        }
+        return {};
+      },
+      { savedUserId: "saved" },
+    );
+    const { result } = renderHook(() => useLiveCommunity(client));
+    await waitFor(() => expect(result.current?.unreachable).toBe(true));
+    expect(result.current?.userId).toBeNull();
+
+    await act(async () => {
+      await result.current!.report("P8", "ignored_name");
+    });
+    expect(signIns()).toBe(0);
+    expect(queries).not.toContainEqual(
+      expect.objectContaining({ table: "profiles", op: "insert" }),
+    );
+    expect(result.current).toMatchObject({ userId: "saved", scoutName: "night_owl" });
+    expect(result.current?.feed[0]).toMatchObject({
+      id: "r1",
+      scout: "night_owl",
+      userId: "saved",
+    });
   });
 });

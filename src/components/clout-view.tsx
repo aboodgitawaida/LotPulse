@@ -14,7 +14,8 @@ import type { Report } from "@/lib/store";
 
 interface CloutViewProps {
   points: number;
-  rank: number;
+  /** Null until you're on this week's board. */
+  rank: number | null;
   reports: Report[];
   badges: Set<BadgeId>;
   leaderboard: LeaderboardRow[];
@@ -33,7 +34,7 @@ export function CloutView({
   unavailable = false,
   onDeleteData,
 }: CloutViewProps) {
-  const scouts = Math.max(leaderboard.length, rank);
+  const scouts = leaderboard.length;
   const { current, next } = tierFor(points);
   const progress = next ? ((points - current.min) / (next.min - current.min)) * 100 : 100;
   const lotsCovered = new Set(reports.map((r) => r.lot)).size;
@@ -50,8 +51,14 @@ export function CloutView({
             <small> pts</small>
           </p>
           <p className="clout-tier">
-            {current.name} · <strong>#{rank}</strong> of {scouts}{" "}
-            {scouts === 1 ? "scout" : "scouts"}
+            {current.name} ·{" "}
+            {rank === null ? (
+              "not on the board yet. Send a report to join."
+            ) : (
+              <>
+                <strong>#{rank}</strong> of {scouts} {scouts === 1 ? "scout" : "scouts"}
+              </>
+            )}
           </p>
         </div>
         <div className="tier-progress">

@@ -1,5 +1,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
+import { CAMPUS_TIME_ZONE } from "@/lib/format";
+
 interface HeroProps {
   /** Small label above the headline. */
   eyebrow: string;
@@ -41,7 +43,7 @@ export function Hero({ eyebrow, lines, subtitle, aside }: HeroProps) {
   );
 }
 
-/** Ticking local time, so the page feels like a live instrument. */
+/** Ticking campus time, so the page feels like a live instrument. */
 function LiveClock() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -57,6 +59,7 @@ function LiveClock() {
         second: "2-digit",
         hour12: false,
         timeZoneName: "short",
+        timeZone: CAMPUS_TIME_ZONE,
       })}
     </time>
   );

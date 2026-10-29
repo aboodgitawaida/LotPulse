@@ -1,5 +1,23 @@
 import type { Lot } from "./lots";
 
+/** UTM's time zone. Greetings, weekdays and the clock follow campus time, not the visitor's. */
+export const CAMPUS_TIME_ZONE = "America/Toronto";
+
+/** The hour (0–23) on campus right now. */
+export function campusHour(date: Date): number {
+  const hour = new Intl.DateTimeFormat("en-CA", {
+    hour: "numeric",
+    hourCycle: "h23",
+    timeZone: CAMPUS_TIME_ZONE,
+  }).format(date);
+  return Number(hour) % 24;
+}
+
+/** The weekday on campus, e.g. "Thursday". */
+export function campusWeekday(date: Date): string {
+  return date.toLocaleDateString("en-CA", { weekday: "long", timeZone: CAMPUS_TIME_ZONE });
+}
+
 /** Relative time for timestamps in the past: "just now", "12 min ago", "3h ago". */
 export function timeAgo(timestamp: number, now: number): string {
   const minutes = Math.floor((now - timestamp) / 60_000);

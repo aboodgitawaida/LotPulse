@@ -2,10 +2,10 @@ import { Activity, Crosshair } from "lucide-react";
 
 import { timeAgo } from "@/lib/format";
 import { getLot, type LotId } from "@/lib/lots";
-import type { Sighting } from "@/lib/store";
+import type { FeedReport } from "@/lib/store";
 
 interface ActivityFeedProps {
-  sightings: Sighting[];
+  feed: FeedReport[];
   now: Date;
   onSelect: (lot: LotId) => void;
   limit?: number;
@@ -16,7 +16,7 @@ interface ActivityFeedProps {
 }
 
 export function ActivityFeed({
-  sightings,
+  feed,
   now,
   onSelect,
   limit = 5,
@@ -35,7 +35,7 @@ export function ActivityFeed({
           {!live ? "Not connected" : unreachable ? "Reconnecting" : "Live"}
         </span>
       </header>
-      {sightings.length === 0 && (
+      {feed.length === 0 && (
         <p className="card-empty">
           {unreachable
             ? "Can't reach live reports right now. Retrying…"
@@ -45,24 +45,24 @@ export function ActivityFeed({
         </p>
       )}
       <ol className="feed-list">
-        {sightings.slice(0, limit).map((sighting) => (
-          <li key={sighting.id}>
+        {feed.slice(0, limit).map((entry) => (
+          <li key={entry.id}>
             <button
               type="button"
               className="feed-item"
-              data-mine={sighting.mine}
-              onClick={() => onSelect(sighting.lot)}
+              data-mine={entry.mine}
+              onClick={() => onSelect(entry.lot)}
             >
               <span className="feed-icon" aria-hidden>
                 <Crosshair />
               </span>
               <span className="feed-text">
-                <strong>Enforcement at {getLot(sighting.lot).name}</strong>
+                <strong>Enforcement at {getLot(entry.lot).name}</strong>
                 <span>
-                  {sighting.mine ? "You" : sighting.scout} · {timeAgo(sighting.at, now.getTime())}
+                  {entry.mine ? "You" : entry.scout} · {timeAgo(entry.at, now.getTime())}
                 </span>
               </span>
-              <span className="feed-lot">{getLot(sighting.lot).short}</span>
+              <span className="feed-lot">{getLot(entry.lot).short}</span>
             </button>
           </li>
         ))}

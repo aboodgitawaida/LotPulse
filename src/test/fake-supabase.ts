@@ -12,8 +12,13 @@ export type Result = { data?: unknown; error?: { message: string } | null };
 type ChangeHandler = (payload: { new: unknown; old: unknown }) => void;
 
 /** Just enough of the Supabase client for useLiveCommunity, plus a Realtime trigger. */
-export function fakeSupabase(respond: (query: Query) => Result) {
+export function fakeSupabase(
+  respond: (query: Query) => Result,
+  /** A scout already signed in on this browser (an anonymous session in storage). */
+  { savedUserId }: { savedUserId?: string } = {},
+) {
   const queries: Query[] = [];
+  let anonymousSignIns = 0;
   const handlers: { event: string; table: string; handler: ChangeHandler }[] = [];
   const from = (table: string) => {
     const query: Query = { table, op: "select", filters: {} };
@@ -68,8 +73,13 @@ export function fakeSupabase(respond: (query: Query) => Result) {
     channel: () => channel,
     removeChannel: async () => "ok",
     auth: {
-      getSession: async () => ({ data: { session: null } }),
-      signInAnonymously: async () => ({ data: { user: { id: "me" } }, error: null }),
+      getSession: async () => ({
+        data: { session: savedUserId ? { user: { id: savedUserId } } : null },
+      }),
+      signInAnonymously: async () => {
+        anonymousSignIns += 1;
+        return { data: { user: { id: "me" } }, error: null };
+      },
       signOut: async () => ({ error: null }),
     },
   };
@@ -81,7 +91,12 @@ export function fakeSupabase(respond: (query: Query) => Result) {
     }
   };
 
-  return { client: client as unknown as SupabaseClient, queries, emitInsert };
+  return {
+    client: client as unknown as SupabaseClient,
+    queries,
+    emitInsert,
+    signIns: () => anonymousSignIns,
+  };
 }
 
 export const minutesAgo = (minutes: number) =>

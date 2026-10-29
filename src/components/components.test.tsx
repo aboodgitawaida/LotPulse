@@ -28,7 +28,7 @@ const board = (points: number) =>
 const status = (overrides: Partial<LotStatus> = {}): LotStatus => ({
   recentReports: 0,
   tone: "low",
-  lastSighting: null,
+  lastReport: null,
   spotted: false,
   cooldownMinutes: 0,
   ...overrides,
@@ -63,7 +63,7 @@ describe("FocusLot", () => {
           spotted: true,
           recentReports: 1,
           tone: "medium",
-          lastSighting: { id: "1", lot: "P9", scout: "You", at, mine: true },
+          lastReport: { id: "1", lot: "P9", scout: "You", at, mine: true },
         })}
         now={now}
       />,
@@ -98,7 +98,7 @@ describe("CloutView", () => {
     render(
       <CloutView
         points={145}
-        rank={8}
+        rank={4}
         reports={[{ id: "r", lot: "P9", at: now.getTime() }]}
         badges={new Set(["first-signal"])}
         leaderboard={board(145)}
@@ -108,6 +108,12 @@ describe("CloutView", () => {
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "97");
     expect(screen.getByText("First signal").closest("li")).toHaveAttribute("data-earned", "true");
     expect(screen.getByText("Hat trick").closest("li")).toHaveAttribute("data-earned", "false");
+  });
+
+  it("doesn't rank visitors who haven't reported yet", () => {
+    render(<CloutView points={0} rank={null} reports={[]} badges={new Set()} leaderboard={[]} />);
+    expect(screen.getByText(/not on the board yet/)).toBeInTheDocument();
+    expect(screen.queryByText(/#1/)).not.toBeInTheDocument();
   });
 });
 

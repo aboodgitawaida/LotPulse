@@ -8,10 +8,10 @@ import { rankLeaderboard, type LeaderboardRow } from "./community";
 import { isLotId, type LotId } from "./lots";
 
 const DAY = 86_400_000;
-/** How far back the live feed (and "last sighting" per lot) looks. */
+/** How far back the live feed (and the last report per lot) looks. */
 export const FEED_WINDOW_MS = DAY;
 
-export interface LiveSighting {
+export interface LiveFeedReport {
   id: string;
   lot: LotId;
   userId: string;
@@ -31,8 +31,8 @@ export interface LiveCommunity {
   unreachable: boolean;
   userId: string | null;
   scoutName: string | null;
-  sightings: LiveSighting[];
-  /** This scout's sightings since Monday. */
+  feed: LiveFeedReport[];
+  /** This scout's reports since Monday. */
   myReports: LiveReport[];
   leaderboard: LeaderboardRow[];
   report: (lot: LotId, scoutName?: string, captchaToken?: string) => Promise<LiveReport>;
@@ -53,7 +53,7 @@ export function weekStart(now: Date): Date {
 }
 
 /** Validate a reports row (optionally with an embedded profile) from the API. */
-export function parseSighting(row: unknown, fallbackScout = "scout"): LiveSighting | null {
+export function parseReport(row: unknown, fallbackScout = "scout"): LiveFeedReport | null {
   if (!isRecord(row)) return null;
   const { id, lot_id: lot, reporter_id: reporterId, created_at: createdAt, profiles } = row;
   if (typeof id !== "string" || typeof createdAt !== "string") return null;
@@ -106,7 +106,7 @@ export function friendlyError(error: unknown): string {
 
 const REPORT_COLUMNS = "id, lot_id, reporter_id, created_at";
 /**
- * Every open tab hears every sighting, so leaderboard refreshes after realtime
+ * Every open tab hears every report, so leaderboard refreshes after realtime
  * events are batched and spread out instead of all hitting the API at once.
  */
 const BOARD_REFRESH_MS = 3_000;
@@ -118,24 +118,24 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
   const [unreachable, setUnreachable] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [scoutName, setScoutName] = useState<string | null>(null);
-  const [sightings, setSightings] = useState<LiveSighting[]>([]);
+  const [feed, setFeed] = useState<LiveFeedReport[]>([]);
   const [myReports, setMyReports] = useState<LiveReport[]>([]);
   const [board, setBoard] = useState<BoardEntry[]>([]);
   const names = useRef(new Map<string, string>());
   const userIdRef = useRef<string | null>(null);
 
-  const addSighting = useCallback((sighting: LiveSighting) => {
-    if (sighting.userId) names.current.set(sighting.userId, sighting.scout);
-    setSightings((previous) =>
-      previous.some((s) => s.id === sighting.id)
+  const addReport = useCallback((entry: LiveFeedReport) => {
+    if (entry.userId) names.current.set(entry.userId, entry.scout);
+    setFeed((previous) =>
+      previous.some((s) => s.id === entry.id)
         ? previous
-        : [sighting, ...previous].sort((a, b) => b.at - a.at),
+        : [entry, ...previous].sort((a, b) => b.at - a.at),
     );
-    if (sighting.userId === userIdRef.current) {
+    if (entry.userId === userIdRef.current) {
       setMyReports((previous) =>
-        previous.some((r) => r.id === sighting.id)
+        previous.some((r) => r.id === entry.id)
           ? previous
-          : [...previous, { id: sighting.id, lot: sighting.lot, at: sighting.at }],
+          : [...previous, { id: entry.id, lot: entry.lot, at: entry.at }],
       );
     }
   }, []);
@@ -168,7 +168,7 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
       const { data: auth } = await client.auth.getSession();
       const uid = auth.session?.user.id ?? null;
       const since = new Date(Date.now() - FEED_WINDOW_MS).toISOString();
-      const [feed, profile, mine] = await Promise.all([
+      const [feedResult, profile, mine] = await Promise.all([
         client
           .from("reports")
           .select(`${REPORT_COLUMNS}, profiles(username)`)
@@ -187,7 +187,7 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
       ]);
       if (cancelled) return;
       // A failed load is not "no reports": never let it show lots as clear.
-      if (feed.error) throw feed.error;
+      if (feedResult.error) throw feedResult.error;
 
       userIdRef.current = uid;
       setUserId(uid);
@@ -196,20 +196,20 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
           ? profile.data["username"]
           : null;
       setScoutName(name);
-      const parsed = (feed.data ?? [])
-        .map((row: unknown) => parseSighting(row))
-        .filter((s: LiveSighting | null): s is LiveSighting => s !== null);
+      const parsed = (feedResult.data ?? [])
+        .map((row: unknown) => parseReport(row))
+        .filter((s: LiveFeedReport | null): s is LiveFeedReport => s !== null);
       for (const s of parsed) if (s.userId) names.current.set(s.userId, s.scout);
       // Keep anything Realtime delivered while this was loading.
-      setSightings((previous) => {
+      setFeed((previous) => {
         const ids = new Set(parsed.map((s) => s.id));
         return [...parsed, ...previous.filter((s) => !ids.has(s.id))].sort((a, b) => b.at - a.at);
       });
       setMyReports(
         (mine?.data ?? [])
-          .map((row: unknown) => parseSighting(row))
-          .filter((s: LiveSighting | null): s is LiveSighting => s !== null)
-          .map(({ id, lot, at }: LiveSighting) => ({ id, lot, at })),
+          .map((row: unknown) => parseReport(row))
+          .filter((s: LiveFeedReport | null): s is LiveFeedReport => s !== null)
+          .map(({ id, lot, at }: LiveFeedReport) => ({ id, lot, at })),
       );
       setLoading(false);
     };
@@ -253,8 +253,8 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
             isRecord(row) && typeof row["reporter_id"] === "string" ? row["reporter_id"] : "";
           const known = names.current.get(userIdOfRow);
           const finish = (scout: string) => {
-            const sighting = parseSighting(row, scout);
-            if (sighting && !cancelled) addSighting(sighting);
+            const entry = parseReport(row, scout);
+            if (entry && !cancelled) addReport(entry);
             scheduleBoard();
           };
           if (known || !userIdOfRow) {
@@ -287,13 +287,34 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
       document.removeEventListener("visibilitychange", onVisibility);
       void client.removeChannel(channel);
     };
-  }, [client, addSighting, refreshBoard]);
+  }, [client, addReport, refreshBoard]);
 
   const report = useCallback(
     async (lot: LotId, requestedName?: string, captchaToken?: string): Promise<LiveReport> => {
       if (!client) throw new Error("Live reporting isn't configured.");
 
       let uid = userIdRef.current;
+      let name = scoutName;
+      if (!uid) {
+        // Reports may not have loaded yet (slow network, or the load failed), so
+        // reuse a saved sign-in instead of creating a second scout.
+        const { data } = await client.auth.getSession();
+        const savedId = data.session?.user.id;
+        if (savedId) {
+          uid = savedId;
+          userIdRef.current = uid;
+          setUserId(uid);
+          const { data: profile } = await client
+            .from("profiles")
+            .select("username")
+            .eq("id", uid)
+            .maybeSingle();
+          if (isRecord(profile) && typeof profile["username"] === "string") {
+            name = profile["username"];
+            setScoutName(name);
+          }
+        }
+      }
       if (!uid) {
         const { data, error } = await client.auth.signInAnonymously(
           captchaToken ? { options: { captchaToken } } : undefined,
@@ -304,7 +325,6 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
         setUserId(uid);
       }
 
-      let name = scoutName;
       if (!name) {
         const wanted = requestedName?.trim();
         if (!wanted) throw new Error("Pick a scout name first.");
@@ -320,13 +340,13 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
         .select(REPORT_COLUMNS)
         .single();
       if (error) throw new Error(friendlyError(error));
-      const sighting = parseSighting(data, name);
-      if (!sighting) throw new Error(friendlyError(null));
-      addSighting(sighting);
+      const entry = parseReport(data, name);
+      if (!entry) throw new Error(friendlyError(null));
+      addReport(entry);
       void refreshBoard();
-      return { id: sighting.id, lot: sighting.lot, at: sighting.at };
+      return { id: entry.id, lot: entry.lot, at: entry.at };
     },
-    [client, scoutName, addSighting, refreshBoard],
+    [client, scoutName, addReport, refreshBoard],
   );
 
   const deleteMyData = useCallback(async () => {
@@ -340,7 +360,7 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
     setUserId(null);
     setScoutName(null);
     setMyReports([]);
-    setSightings((previous) => previous.filter((s) => s.userId !== uid));
+    setFeed((previous) => previous.filter((s) => s.userId !== uid));
     names.current.delete(uid);
     void refreshBoard();
   }, [client, refreshBoard]);
@@ -353,7 +373,7 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
           points: row.points,
           you: row.userId === userId,
         })),
-        // Show yourself even before your first sighting this week.
+        // Show yourself even before your first report this week.
         scoutName && !board.some((row) => row.userId === userId)
           ? { name: scoutName, points: 0 }
           : null,
@@ -369,7 +389,7 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
             unreachable,
             userId,
             scoutName,
-            sightings,
+            feed,
             myReports,
             leaderboard,
             report,
@@ -382,7 +402,7 @@ export function useLiveCommunity(client: SupabaseClient | null): LiveCommunity |
       unreachable,
       userId,
       scoutName,
-      sightings,
+      feed,
       myReports,
       leaderboard,
       report,

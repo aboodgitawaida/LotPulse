@@ -55,13 +55,13 @@ describe("store without Supabase", () => {
     const { result } = renderHook(useStore, { wrapper: offline });
     expect(result.current.mode).toBe("offline");
     expect(result.current.selected).toBe("P9");
-    expect(result.current.sightings).toEqual([]);
+    expect(result.current.feed).toEqual([]);
     expect(result.current.leaderboard).toEqual([]);
     expect(result.current.points).toBe(0);
     expect(result.current.statusFor("P9")).toMatchObject({
       recentReports: 0,
       tone: "low",
-      lastSighting: null,
+      lastReport: null,
     });
   });
 
@@ -93,16 +93,16 @@ describe("store with Supabase", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(result.current.statusFor("P9")).toMatchObject({ recentReports: 2, tone: "high" });
-    expect(result.current.statusFor("P9").lastSighting?.id).toBe("a");
+    expect(result.current.statusFor("P9").lastReport?.id).toBe("a");
     expect(result.current.statusFor("P4")).toMatchObject({ recentReports: 1, tone: "medium" });
-    // Too old to count towards risk, but still the last sighting.
+    // Too old to count towards risk, but still the last report.
     expect(result.current.statusFor("IC")).toMatchObject({
       recentReports: 0,
       tone: "low",
       spotted: false,
     });
-    expect(result.current.statusFor("IC").lastSighting?.id).toBe("d");
-    expect(result.current.statusFor("P8").lastSighting).toBeNull();
+    expect(result.current.statusFor("IC").lastReport?.id).toBe("d");
+    expect(result.current.statusFor("P8").lastReport).toBeNull();
   });
 
   it("updates a lot when another device reports it", async () => {
@@ -122,7 +122,7 @@ describe("store with Supabase", () => {
     await waitFor(() =>
       expect(result.current.statusFor("P9")).toMatchObject({ recentReports: 1, tone: "medium" }),
     );
-    expect(result.current.statusFor("P9").lastSighting).toMatchObject({
+    expect(result.current.statusFor("P9").lastReport).toMatchObject({
       scout: "deck_runner",
       mine: false,
     });
@@ -143,7 +143,7 @@ describe("store with Supabase", () => {
     );
     const status = result.current.statusFor("P9");
     expect(status).toMatchObject({ recentReports: 1, spotted: true });
-    expect(status.lastSighting).toMatchObject({ mine: true });
+    expect(status.lastReport).toMatchObject({ mine: true });
     expect(status.cooldownMinutes).toBe(REPORT_COOLDOWN_MINUTES);
     await waitFor(() => expect(result.current.points).toBe(POINTS_PER_REPORT));
     expect(result.current.badges.has("first-signal")).toBe(true);

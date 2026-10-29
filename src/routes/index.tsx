@@ -17,6 +17,7 @@ import { Ticker } from "@/components/ticker";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
 import { POINTS_PER_REPORT } from "@/lib/community";
+import { campusHour, campusWeekday } from "@/lib/format";
 import { LOTS, TONE_LABEL, getLot, type LotId, type Tone } from "@/lib/lots";
 import { trackSpotlight } from "@/lib/spotlight";
 import { StoreProvider, useStore } from "@/lib/store";
@@ -44,7 +45,7 @@ function DashboardPage() {
 }
 
 function greeting(date: Date) {
-  const hour = date.getHours();
+  const hour = campusHour(date);
   if (hour < 5) return ["Late night,", "scout."];
   if (hour < 12) return ["Good morning,", "scout."];
   if (hour < 18) return ["Good afternoon,", "scout."];
@@ -120,7 +121,7 @@ function Dashboard() {
     }
   };
 
-  const weekday = store.now.toLocaleDateString("en-CA", { weekday: "long" });
+  const weekday = campusWeekday(store.now);
   const statuses = LOTS.map((item) => ({ lot: item, status: statusFor(item.id) }));
   const hottest = statuses.reduce((top, item) =>
     item.status.recentReports > top.status.recentReports ? item : top,
@@ -161,7 +162,7 @@ function Dashboard() {
               }
               aside={
                 <>
-                  <span className="demo-chip" data-live={known}>
+                  <span className="live-chip" data-live={known}>
                     {!live ? "Not connected" : store.unreachable ? "Reconnecting…" : "Live reports"}
                   </span>
                   <button
@@ -244,7 +245,7 @@ function Dashboard() {
                   />
                 </div>
                 <ActivityFeed
-                  sightings={store.sightings}
+                  feed={store.feed}
                   now={store.now}
                   onSelect={selectLot}
                   live={live}

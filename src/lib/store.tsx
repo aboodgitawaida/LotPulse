@@ -49,7 +49,7 @@ function saveSelected(selected: LotId) {
   }
 }
 
-export interface Sighting {
+export interface FeedReport {
   id: string;
   lot: LotId;
   scout: string;
@@ -62,7 +62,7 @@ export interface LotStatus {
   recentReports: number;
   tone: Tone;
   /** The most recent report for this lot, if it's within the feed window. */
-  lastSighting: Sighting | null;
+  lastReport: FeedReport | null;
   /** At least one recent report. */
   spotted: boolean;
   /** Minutes until this scout may report the lot again (0 = can report). */
@@ -81,11 +81,12 @@ interface StoreValue {
   /** Your reports this week. */
   reports: Report[];
   /** Everyone's reports from the last 24 hours, newest first. */
-  sightings: Sighting[];
+  feed: FeedReport[];
   leaderboard: LeaderboardRow[];
   points: number;
   badges: Set<BadgeId>;
-  rank: number;
+  /** Your place on this week's board, or null until you're on it. */
+  rank: number | null;
   /** You still need to pick a public scout name before reporting. */
   needsName: boolean;
   statusFor: (lot: LotId) => LotStatus;
@@ -135,9 +136,9 @@ export function StoreProvider({
 
   const live = useLiveCommunity(client);
 
-  const sightings = useMemo<Sighting[]>(
+  const feed = useMemo<FeedReport[]>(
     () =>
-      (live?.sightings ?? []).map((s) => ({
+      (live?.feed ?? []).map((s) => ({
         id: s.id,
         lot: s.lot,
         scout: s.scout,
@@ -152,7 +153,7 @@ export function StoreProvider({
 
   const you = leaderboard.find((row) => row.you);
   const points = you?.points ?? 0;
-  const rank = you?.rank ?? leaderboard.length + 1;
+  const rank = you?.rank ?? null;
 
   const badges = useMemo(() => {
     const earned = new Set<BadgeId>();
@@ -166,9 +167,9 @@ export function StoreProvider({
   const statusFor = useCallback(
     (lotId: LotId): LotStatus => {
       const nowMs = now.getTime();
-      // Sightings are sorted newest first.
-      const forLot = sightings.filter((s) => s.lot === lotId);
-      const lastSighting = forLot[0] ?? null;
+      // The feed is sorted newest first.
+      const forLot = feed.filter((s) => s.lot === lotId);
+      const lastReport = forLot[0] ?? null;
       const recentReports = forLot.filter(
         (s) => nowMs - s.at < RISK_WINDOW_MINUTES * MINUTE,
       ).length;
@@ -182,12 +183,12 @@ export function StoreProvider({
       return {
         recentReports,
         tone: riskFor(recentReports),
-        lastSighting,
+        lastReport,
         spotted: recentReports > 0,
         cooldownMinutes: cooldownMs > 0 ? Math.ceil(cooldownMs / MINUTE) : 0,
       };
     },
-    [now, sightings, reports],
+    [now, feed, reports],
   );
 
   const value = useMemo<StoreValue>(
@@ -198,7 +199,7 @@ export function StoreProvider({
       now,
       selected,
       reports,
-      sightings,
+      feed,
       leaderboard,
       points,
       badges,
@@ -219,19 +220,7 @@ export function StoreProvider({
         await live?.deleteMyData();
       },
     }),
-    [
-      live,
-      now,
-      refreshNow,
-      selected,
-      reports,
-      sightings,
-      leaderboard,
-      points,
-      badges,
-      rank,
-      statusFor,
-    ],
+    [live, now, refreshNow, selected, reports, feed, leaderboard, points, badges, rank, statusFor],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

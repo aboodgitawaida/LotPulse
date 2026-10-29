@@ -24,7 +24,7 @@ export function FocusLot({
   known = true,
   unknownReason = "Checking for reports…",
 }: FocusLotProps) {
-  const { lastSighting } = status;
+  const { lastReport } = status;
 
   return (
     <section className="card focus-lot" aria-labelledby="focus-lot-title" data-tone={status.tone}>
@@ -61,12 +61,10 @@ export function FocusLot({
           <p className="metric-detail">
             {!known ? (
               unknownReason
-            ) : lastSighting ? (
+            ) : lastReport ? (
               <>
-                Last report <strong>{timeAgo(lastSighting.at, now.getTime())}</strong>
-                <span className="metric-sub">
-                  by {lastSighting.mine ? "you" : lastSighting.scout}
-                </span>
+                Last report <strong>{timeAgo(lastReport.at, now.getTime())}</strong>
+                <span className="metric-sub">by {lastReport.mine ? "you" : lastReport.scout}</span>
               </>
             ) : (
               "No recent reports"

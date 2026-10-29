@@ -445,7 +445,7 @@
   margin-top: 6px;
   color: var(--muted-foreground);
 }
-.demo-chip {
+.live-chip {
   flex-shrink: 0;
   padding: 6px 12px;
   border-radius: 999px;
@@ -1856,14 +1856,14 @@ body::after {
   flex-shrink: 0;
   animation: fade-up 0.9s var(--ease-out) 0.3s backwards;
 }
-.hero-aside .demo-chip {
+.hero-aside .live-chip {
   font-family: var(--font-mono);
   font-weight: 500;
   border-style: solid;
   border-color: var(--hairline);
   background: var(--glass);
 }
-.demo-chip[data-live="true"] {
+.live-chip[data-live="true"] {
   color: var(--tone-low);
   border-color: color-mix(in oklch, var(--tone-low) 35%, transparent);
 }
