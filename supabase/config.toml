@@ -1,6 +1,6 @@
 # Supabase CLI / GitHub integration config. Everything not listed uses the
 # CLI defaults. Database changes live in supabase/migrations.
-project_id = "lotspot-utm"
+project_id = "lotpulse-utm"
 
 [auth]
 # Scouts sign in anonymously before their first report. On the hosted project
