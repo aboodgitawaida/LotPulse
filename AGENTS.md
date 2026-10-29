@@ -16,6 +16,10 @@
 - Visual tokens (colors, threat tones, radii) live in `src/styles.css`. Reusable UI belongs in `src/components/`.
 - The campus map uses Leaflet. It uses OpenStreetMap tiles (darkened via CSS) and Esri satellite; if those fail and `VITE_MAPTILER_KEY` is set, it switches to MapTiler (light streets under the same CSS darkening, plus satellite, with the required MapTiler/OSM attribution). Any new tile host must be added to the CSP `img-src` in `vite.config.ts`. It only renders on the client.
 
-## Checks
+## Checks and commits
 
-Run `bun run check` (typecheck, lint, tests) and `bun run build` before pushing.
+Run `bun run check` (typecheck, lint with no warnings, format check, tests) and `bun run build` before pushing.
+
+Commit messages and PR titles follow Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `build:`, `ci:`, `chore:`). PRs are squash-merged, and a workflow checks the PR title. See `CONTRIBUTING.md`.
+
+In code and UI, a student's alert is a "report" (the database table is `reports`). The older name "sighting" only survives in applied migrations.

@@ -1,20 +1,45 @@
 {
   "name": "lotpulse",
+  "version": "0.1.0",
+  "description": "Live, crowd-sourced parking enforcement reports for University of Toronto Mississauga students. Realtime with Supabase, security enforced in Postgres.",
+  "license": "MIT",
+  "author": "Abood Awaida",
+  "homepage": "https://lotpulse-utm.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aboodgitawaida/LotPulse.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aboodgitawaida/LotPulse/issues"
+  },
+  "keywords": [
+    "parking",
+    "realtime",
+    "supabase",
+    "tanstack-start",
+    "react",
+    "leaflet",
+    "crowdsourcing",
+    "utm"
+  ],
   "private": true,
-  "sideEffects": false,
   "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
     "start": "node .output/server/index.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run typecheck && npm run lint && npm run test",
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun run test",
     "db:setup-sql": "bun scripts/setup-sql.ts",
     "verify:live": "bun scripts/verify-live.ts"
   },
@@ -64,10 +89,5 @@
     "typescript-eslint": "^8.56.1",
     "vite": "8.1.5",
     "vitest": "^4.1.10"
-  },
-  "version": "0.1.0",
-  "description": "Live, student-reported parking enforcement sightings for University of Toronto Mississauga.",
-  "engines": {
-    "node": ">=20.19"
   }
 }
