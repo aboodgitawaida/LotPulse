@@ -58,6 +58,8 @@ export default defineConfig(({ mode }) => {
               ...(mode === "production" && { "Content-Security-Policy": csp }),
               "X-Content-Type-Options": "nosniff",
               "X-Frame-Options": "DENY",
+              // Keeps other sites' windows from scripting this one.
+              "Cross-Origin-Opener-Policy": "same-origin",
               // OpenStreetMap's tile policy needs the site's origin as referrer.
               "Referrer-Policy": "strict-origin-when-cross-origin",
               "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
