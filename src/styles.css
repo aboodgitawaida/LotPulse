@@ -57,7 +57,8 @@
   --violet: oklch(0.66 0.2 295);
   --cyan: oklch(0.82 0.13 210);
   --primary-strong: oklch(0.6 0.22 258);
-  --primary-foreground: oklch(0.99 0 0);
+  /* Dark text on the bright blue: white on it is below WCAG AA contrast. */
+  --primary-foreground: oklch(0.16 0.02 260);
   --gold: oklch(0.85 0.14 86);
 
   /* One risk scale, used everywhere: chips, gauge, map pins. */
@@ -800,7 +801,8 @@
   border-radius: var(--radius-card);
   border: 1px solid color-mix(in oklch, var(--primary) 70%, white 10%);
   background: linear-gradient(115deg, var(--primary-strong), var(--primary));
-  color: var(--primary-foreground);
+  /* Large bold text over the darker gradient, so white stays readable here. */
+  color: oklch(0.99 0 0);
   text-align: left;
   box-shadow:
     0 0 0 1px oklch(1 0 0 / 6%) inset,
@@ -2435,6 +2437,9 @@ body::after {
 }
 .prose-page a {
   color: var(--primary);
+  /* Colour alone isn't enough to tell a link apart from body text. */
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .prose-page .prose-back {
   margin-top: 40px;
