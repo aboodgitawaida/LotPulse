@@ -57,7 +57,8 @@
   --violet: oklch(0.66 0.2 295);
   --cyan: oklch(0.82 0.13 210);
   --primary-strong: oklch(0.6 0.22 258);
-  --primary-foreground: oklch(0.99 0 0);
+  /* Dark ink: white on --primary is only 2.8:1, below WCAG AA for button text. */
+  --primary-foreground: oklch(0.16 0.02 265);
   --gold: oklch(0.85 0.14 86);
 
   /* One risk scale, used everywhere: chips, gauge, map pins. */
@@ -800,7 +801,8 @@
   border-radius: var(--radius-card);
   border: 1px solid color-mix(in oklch, var(--primary) 70%, white 10%);
   background: linear-gradient(115deg, var(--primary-strong), var(--primary));
-  color: var(--primary-foreground);
+  /* White reads on the deep end of the gradient; flat primary fills use dark ink. */
+  color: oklch(0.99 0 0);
   text-align: left;
   box-shadow:
     0 0 0 1px oklch(1 0 0 / 6%) inset,
@@ -1390,6 +1392,10 @@
 .map-dialog {
   width: min(440px, calc(100% - 32px));
   max-width: none;
+  /* Small phones and an open keyboard leave little room: scroll inside instead of clipping. */
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   gap: 0;
   padding: 24px;
   border-radius: 20px;
@@ -2401,6 +2407,7 @@ body::after {
 
 .footer-row a {
   color: inherit;
+  text-decoration: underline;
   text-underline-offset: 3px;
 }
 
@@ -2429,6 +2436,8 @@ body::after {
 }
 .prose-page a {
   color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .prose-page .prose-back {
   margin-top: 40px;
@@ -2959,4 +2968,18 @@ body::after {
   background: color-mix(in oklch, var(--tone-medium) 10%, transparent);
   color: var(--tone-medium);
   font-size: 14px;
+}
+
+/* Legibility on phones: the small mono labels never drop below 12px. */
+@media (max-width: 680px) {
+  .footer-row,
+  .eyebrow,
+  .report-button-text small,
+  .hero-stat-label span,
+  .hero-index,
+  .hero-clock,
+  .focus-lot-updated,
+  .tone-pill {
+    font-size: 12px;
+  }
 }
