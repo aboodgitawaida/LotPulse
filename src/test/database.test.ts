@@ -307,6 +307,98 @@ describe("reports migration", () => {
       db.query("insert into public.profiles (id, username) values ($1, 'utm_commuter')", [carol]),
     ).resolves.toBeTruthy();
   });
+
+  it("rejects offensive scout names, even disguised, but not words that contain them", async () => {
+    // The blocked examples are ROT13-encoded, like the word lists in the migration.
+    const rot13 = (text: string) =>
+      text.replace(/[a-z]/gi, (c) => {
+        const base = c <= "Z" ? 65 : 97;
+        return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
+      });
+    const blocked = [
+      "qrpx_shpxre", // anywhere in the name
+      "Fu1gCbfgre", // leetspeak and camelCase
+      "shhhhpx_hgz", // stretched letters
+      "OvtPbpx", // a whole-word term between camelCase words
+      "n_f_f", // spelled out with underscores
+      "nffff_zna",
+      "e4cvfg",
+      "a4mv_fpbhg",
+      "xxxx",
+      "obl1488",
+      "n55u0yr",
+      "Ergneqrq_Qevire",
+      "qvpx",
+      "GVG5",
+    ].map(rot13);
+    const allowed = [
+      "class_act",
+      "grape_drape",
+      "the_therapist",
+      "peacock_fan",
+      "raccoon",
+      "spicy_deck",
+      "homework_hero",
+      "analysis_guy",
+      "torpedo",
+      "montenegro",
+      "as_you_were",
+      "cocktail",
+      "bass_player",
+      "assassin",
+      "Nazir",
+      "titan",
+      "skyscraper",
+      "Dickens",
+      "scoutwatch",
+      "wristwatch",
+      "saltwater",
+      "swanky",
+      "flame_retardant",
+      "rapped",
+      "Shiite",
+      "poor_nerd",
+      "deck_runner",
+      "nightowl_22",
+    ];
+
+    await as("anon");
+    for (const name of blocked) {
+      const { rows } = await db.query<{ bad: boolean }>(
+        "select public.username_is_offensive($1) as bad",
+        [name],
+      );
+      expect({ name, bad: rows[0]!.bad }).toEqual({ name, bad: true });
+    }
+    for (const name of allowed) {
+      const { rows } = await db.query<{ bad: boolean }>(
+        "select public.username_is_offensive($1) as bad",
+        [name],
+      );
+      expect({ name, bad: rows[0]!.bad }).toEqual({ name, bad: false });
+    }
+
+    // The table enforces it on new scouts.
+    const carol = "00000000-0000-4000-8000-00000000000c";
+    await as("postgres");
+    await db.query("insert into auth.users (id) values ($1)", [carol]);
+    await as("authenticated", carol);
+    await expect(
+      db.query("insert into public.profiles (id, username) values ($1, $2)", [carol, blocked[0]]),
+    ).rejects.toThrow(/profiles_username_clean/);
+    await expect(
+      db.query("insert into public.profiles (id, username) values ($1, 'peacock_fan')", [carol]),
+    ).resolves.toBeTruthy();
+  });
+
+  it("never rejects or changes existing names when the name filter is added", async () => {
+    // NOT VALID: the constraint skips rows that were there before it.
+    await as("postgres");
+    const { rows } = await db.query<{ convalidated: boolean }>(
+      "select convalidated from pg_constraint where conname = 'profiles_username_clean'",
+    );
+    expect(rows).toEqual([{ convalidated: false }]);
+  });
 });
 
 // A snapshot of everything the migrations define, to compare databases.

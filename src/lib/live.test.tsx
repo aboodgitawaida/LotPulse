@@ -33,6 +33,9 @@ describe("live helpers", () => {
     expect(friendlyError({ message: "cooldown: you reported this lot" })).toMatch(/5 minutes/);
     expect(friendlyError({ message: "rate_limit: too many" })).toMatch(/Try again/);
     expect(friendlyError({ message: 'violates "profiles_username_unique"' })).toMatch(/taken/);
+    expect(friendlyError({ message: 'violates "profiles_username_clean"' })).toMatch(
+      /isn't allowed/,
+    );
     expect(friendlyError({ message: "Anonymous sign-ins are disabled" })).toMatch(/switched on/);
     expect(friendlyError(undefined)).toMatch(/try again/i);
   });
