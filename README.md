@@ -88,7 +88,8 @@ key is public by design: in MapTiler, restrict it to your domains.
    - A signed-in user can only insert their own report: the client sends just the `lot_id`, and the
      `guard_report` trigger sets `reporter_id` to the caller and `created_at` to server time.
    - No updates or deletes from the client, except `delete_my_data()`, which removes only the
-     caller's own reports and account.
+     caller's own reports and account. The API roles don't even hold update or delete privileges,
+     so a policy added by mistake can't open the tables up.
    - One report per user per lot every **5 minutes**, and at most 6 an hour.
 
 ### Setting it up
