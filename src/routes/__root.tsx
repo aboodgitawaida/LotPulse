@@ -7,16 +7,37 @@ import {
   useRouter,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
+import { SITE_URL } from "@/lib/site";
 import appCss from "../styles.css?url";
 
 const SITE_TITLE = "LotPulse · UTM Parking Radar";
 const SITE_DESCRIPTION =
   "Live parking enforcement reports from UTM students. See where enforcement was last spotted, lot by lot.";
-// Link previews need absolute URLs.
-const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "").replace(/\/$/, "");
 const OG_IMAGE = `${SITE_URL}/og.png`;
+// Open the connection to Supabase while the app's JavaScript is still loading.
+const SUPABASE_ORIGIN = (() => {
+  const url = import.meta.env.VITE_SUPABASE_URL ?? import.meta.env.NEXT_PUBLIC_SUPABASE_URL;
+  try {
+    return url ? new URL(url).origin : null;
+  } catch {
+    return null;
+  }
+})();
+// Structured data so search engines know what LotPulse is.
+const STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "LotPulse",
+  description: SITE_DESCRIPTION,
+  ...(SITE_URL && { url: `${SITE_URL}/`, image: OG_IMAGE }),
+  applicationCategory: "TravelApplication",
+  operatingSystem: "Any",
+  browserRequirements: "Requires JavaScript",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "CAD" },
+  audience: { "@type": "Audience", audienceType: "University of Toronto Mississauga students" },
+};
 
 export const Route = createRootRoute({
   head: () => ({
@@ -44,12 +65,14 @@ export const Route = createRootRoute({
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
     ],
     links: [
+      ...(SUPABASE_ORIGIN ? [{ rel: "preconnect", href: SUPABASE_ORIGIN }] : []),
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "icon", href: "/favicon-32.png", sizes: "32x32", type: "image/png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
     ],
+    scripts: [{ type: "application/ld+json", children: JSON.stringify(STRUCTURED_DATA) }],
   }),
   shellComponent: RootShell,
   component: Outlet,
@@ -90,6 +113,9 @@ function StatusPage({
 }
 
 function NotFound() {
+  useEffect(() => {
+    document.title = "Page not found · LotPulse";
+  }, []);
   return (
     <StatusPage
       title="Off the radar"

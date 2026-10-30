@@ -1,6 +1,7 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { BrandMark } from "@/components/brand-mark";
+import { canonical } from "@/lib/site";
 
 export const Route = createFileRoute("/privacy")({
   head: () => ({
@@ -8,6 +9,7 @@ export const Route = createFileRoute("/privacy")({
       { title: "Privacy · LotPulse" },
       { name: "description", content: "What LotPulse stores, who can see it and for how long." },
     ],
+    links: canonical("/privacy"),
   }),
   component: PrivacyPage,
 });
