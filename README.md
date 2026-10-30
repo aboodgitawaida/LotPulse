@@ -2,9 +2,21 @@
 
 **Live parking enforcement reports for students at the University of Toronto Mississauga.**
 
-**[lotpulse-utm.vercel.app](https://lotpulse-utm.vercel.app)**
+[![CI](https://github.com/aboodgitawaida/LotPulse/actions/workflows/ci.yml/badge.svg)](https://github.com/aboodgitawaida/LotPulse/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-Realtime%20%2B%20RLS-3ecf8e?logo=supabase&logoColor=white)
 
-![LotPulse: know before you park at UTM](public/og.png)
+### [Open LotPulse → lotpulse-utm.vercel.app](https://lotpulse-utm.vercel.app)
+
+![LotPulse dashboard on desktop](docs/screenshots/desktop.webp)
+
+<p align="center">
+  <img src="docs/screenshots/mobile-radar.webp" width="260" alt="LotPulse on a phone: the radar view" />
+  <img src="docs/screenshots/mobile-lot.webp" width="260" alt="A lot marked high risk after two reports" />
+  <img src="docs/screenshots/mobile-clout.webp" width="260" alt="The weekly scout leaderboard" />
+</p>
+<p align="center"><sub>Screenshots show sample reports.</sub></p>
 
 Think Waze's police reports, for one campus's parking lots. A student spots enforcement, taps
 once, and every student watching that lot sees it within a second or two. Each lot shows:
@@ -37,6 +49,32 @@ LotPulse isn't affiliated with UTM. For real parking, use UTM's official service
   checks the policies, cooldowns and rate limits; CI runs typecheck, lint, format, tests and a production build on every pull request.
 - **Hardened and fast.** Strict security headers (CSP, frame blocking), a map locked to campus
   with automatic tile-provider fallback, and animations tuned to hold 60 fps on mid-range phones.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Browser["Student's browser (React 19)"]
+    UI["Dashboard<br/>lots · map · feed · clout"]
+    Store["store.tsx<br/>risk from report counts"]
+    Live["live.ts<br/>Supabase client"]
+    UI --> Store --> Live
+  end
+  subgraph Supabase
+    Auth["Anonymous auth<br/>+ Turnstile captcha"]
+    DB[("Postgres<br/>reports · profiles")]
+    Guard["RLS policies +<br/>guard_report trigger"]
+    RT["Realtime"]
+  end
+  Vercel["Vercel<br/>SSR shell + security headers"] --> UI
+  Live -- "sign in once" --> Auth
+  Live -- "insert lot_id" --> Guard --> DB
+  Live -- "select last 24h · weekly_leaderboard()" --> DB
+  DB -- "INSERT events" --> RT -- "websocket" --> Live
+```
+
+The browser only ever sends a lot ID. Who reported it, when, and whether it's allowed are all
+decided by the database, so the rules hold even against a modified client.
 
 ## Getting started
 
@@ -88,7 +126,8 @@ key is public by design: in MapTiler, restrict it to your domains.
    - A signed-in user can only insert their own report: the client sends just the `lot_id`, and the
      `guard_report` trigger sets `reporter_id` to the caller and `created_at` to server time.
    - No updates or deletes from the client, except `delete_my_data()`, which removes only the
-     caller's own reports and account.
+     caller's own reports and account. The API roles don't even hold update or delete privileges,
+     so a policy added by mistake can't open the tables up.
    - One report per user per lot every **5 minutes**, and at most 6 an hour.
 
 ### Setting it up
@@ -130,6 +169,20 @@ key is public by design: in MapTiler, restrict it to your domains.
    With captcha on, `bun run verify:live` can't sign in (it has no token). Turn captcha off while
    running it, or skip it.
 
+## Testing
+
+`bun run check` runs the TypeScript compiler (strict mode), ESLint, Prettier and the Vitest suite.
+CI runs the same checks, a dependency audit and a production build on every push and pull request.
+
+- **Database**: `src/test/database.test.ts` runs every migration in [PGlite](https://pglite.dev)
+  (Postgres compiled to WebAssembly) with Supabase's default grants, then checks the policies,
+  cooldowns, rate limits, data deletion and the leaderboard as real `anon` and `authenticated`
+  roles.
+- **App**: React Testing Library tests drive the store, live data layer and components against
+  a fake Supabase client, including Realtime events, reconnects and failure states.
+- **Live check**: `bun run verify:live` reports, reads back, listens over Realtime and cleans
+  up against the real project (see step 5 above).
+
 ## Deploying to Vercel
 
 Security headers (CSP, frame blocking, referrer policy) are set in `vite.config.ts` through Nitro
@@ -157,8 +210,19 @@ supabase/
   migrations/      Database schema, row level security and guards
   setup.sql        All migrations in one re-runnable script for the SQL Editor (generated)
 scripts/           setup.sql generator and the live end-to-end check
+docs/screenshots/  README screenshots
 ```
 
 ## Tech
 
-TanStack Start · React 19 · Vite · Tailwind CSS 4 · Supabase · Leaflet · Radix UI · Vitest
+TanStack Start · React 19 · TypeScript · Vite · Tailwind CSS 4 · Supabase (Postgres, Auth,
+Realtime) · Leaflet · Radix UI · Vitest · PGlite · Cloudflare Turnstile · Vercel
+
+## Security and privacy
+
+See [SECURITY.md](SECURITY.md) to report a vulnerability, and the in-app
+[privacy page](https://lotpulse-utm.vercel.app/privacy) for what's stored and for how long.
+
+## License
+
+[MIT](LICENSE) © Abood Awaida

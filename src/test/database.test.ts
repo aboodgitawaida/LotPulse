@@ -20,6 +20,10 @@ const SUPABASE_STUB = `
   create role anon;
   create role authenticated;
   grant usage on schema public, auth to anon, authenticated;
+  -- Like Supabase: new tables and functions in public start fully granted to
+  -- the API roles, so the migrations must take away what they don't need.
+  alter default privileges in schema public grant all on tables to anon, authenticated;
+  alter default privileges in schema public grant all on functions to anon, authenticated;
   create publication supabase_realtime;
 `;
 
@@ -168,6 +172,42 @@ describe("reports migration", () => {
     await as("anon");
     const { rows: left } = await db.query<{ lot_id: string }>("select lot_id from public.reports");
     expect(left).toEqual([{ lot_id: "P9" }]);
+  });
+
+  it("never lets the client change or remove scout names", async () => {
+    for (const [role, user] of [
+      ["anon", undefined],
+      ["authenticated", ALICE],
+    ] as const) {
+      await as(role, user);
+      for (const sql of [
+        "update public.profiles set username = 'renamed' where id = $1",
+        "delete from public.profiles where id = $1",
+      ]) {
+        await expect(db.query(sql, [ALICE])).rejects.toThrow(/permission denied/);
+      }
+      await expect(db.exec("truncate public.profiles cascade")).rejects.toThrow(
+        /permission denied/,
+      );
+    }
+
+    // A new scout sends only their id and name; the join time is the server's.
+    const carol = "00000000-0000-4000-8000-00000000000c";
+    await as("postgres");
+    await db.query("insert into auth.users (id) values ($1)", [carol]);
+    await as("authenticated", carol);
+    await expect(
+      db.query(
+        "insert into public.profiles (id, username, created_at) values ($1, 'carol', now() - interval '1 year')",
+        [carol],
+      ),
+    ).rejects.toThrow(/permission denied/);
+
+    await as("anon");
+    const { rows } = await db.query<{ username: string }>(
+      "select username from public.profiles order by username",
+    );
+    expect(rows).toEqual([{ username: "alice_scout" }, { username: "bob" }]);
   });
 
   it("keeps a report, without its reporter, when the scout's profile is deleted", async () => {

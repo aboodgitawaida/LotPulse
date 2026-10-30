@@ -18,7 +18,9 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Toaster } from "@/components/ui/sonner";
 import { POINTS_PER_REPORT } from "@/lib/community";
 import { LOTS, TONE_LABEL, getLot, type LotId, type Tone } from "@/lib/lots";
+import { canonical } from "@/lib/site";
 import { trackSpotlight } from "@/lib/spotlight";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { StoreProvider, useStore } from "@/lib/store";
 
 interface DashboardSearch {
@@ -26,6 +28,7 @@ interface DashboardSearch {
 }
 
 export const Route = createFileRoute("/")({
+  head: () => ({ links: canonical("/") }),
   validateSearch: (search: Record<string, unknown>): DashboardSearch =>
     search["view"] === "clout" ? { view: "clout" } : {},
   // Everything on this page depends on the visitor's clock and saved progress,
@@ -56,6 +59,9 @@ function Dashboard() {
   const view: View = search.view ?? "radar";
   const navigate = useNavigate({ from: "/" });
   const store = useStore();
+  // Phones get the map from the bottom nav instead (matches .desktop-only in
+  // styles.css), so they skip loading Leaflet and tiles for a hidden map.
+  const showInlineMap = useMediaQuery("(min-width: 681px)");
   const [dialog, setDialog] = useState<"report" | "map" | "delete" | null>(null);
   const [sending, setSending] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
@@ -235,14 +241,16 @@ function Dashboard() {
                 />
               </div>
               <aside className="dashboard-side" aria-label="Campus overview">
-                <div className="desktop-only">
-                  <CampusMap
-                    selected={lot.id}
-                    tones={tones}
-                    onSelect={selectLot}
-                    onExpand={() => setDialog("map")}
-                  />
-                </div>
+                {showInlineMap && (
+                  <div className="desktop-only">
+                    <CampusMap
+                      selected={lot.id}
+                      tones={tones}
+                      onSelect={selectLot}
+                      onExpand={() => setDialog("map")}
+                    />
+                  </div>
+                )}
                 <ActivityFeed
                   sightings={store.sightings}
                   now={store.now}

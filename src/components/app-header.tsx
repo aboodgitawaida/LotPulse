@@ -39,7 +39,7 @@ export function AppHeader({ view, points }: { view: View; points: number }) {
         to="/"
         search={{ view: "clout" }}
         className="points-pill"
-        aria-label={`${points} clout points`}
+        aria-label={`${points} pts of clout`}
       >
         <Zap aria-hidden /> {points}
         <span> pts</span>

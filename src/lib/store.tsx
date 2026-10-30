@@ -237,6 +237,8 @@ export function StoreProvider({
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
+// The hook lives beside its provider; fast refresh just reloads this module.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useStore(): StoreValue {
   const store = useContext(StoreContext);
   if (!store) throw new Error("useStore must be used inside <StoreProvider>");
