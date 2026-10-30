@@ -93,6 +93,9 @@ export function friendlyError(error: unknown): string {
   if (message.includes("profiles_username_reserved")) {
     return "That name is reserved. Pick a different scout name.";
   }
+  if (message.includes("profiles_username_clean")) {
+    return "That scout name isn't allowed. Pick a different one.";
+  }
   if (message.includes("profiles_username_format")) {
     return "Scout names are 3–20 letters, numbers or underscores.";
   }

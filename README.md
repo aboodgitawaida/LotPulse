@@ -129,6 +129,9 @@ key is public by design: in MapTiler, restrict it to your domains.
      caller's own reports and account. The API roles don't even hold update or delete privileges,
      so a policy added by mistake can't open the tables up.
    - One report per user per lot every **5 minutes**, and at most 6 an hour.
+   - Scout names can't pose as staff or the app, and slurs or obscene words are refused, including
+     leetspeak, stretched letters and camelCase (`username_is_offensive()`), without blocking
+     ordinary words that contain them, like _class_ or _scoutwatch_.
 
 ### Setting it up
 
