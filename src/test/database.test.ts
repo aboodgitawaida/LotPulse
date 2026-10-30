@@ -473,10 +473,45 @@ describe("supabase/setup.sql", () => {
     expect(once).toContain("realtime public.reports");
   }, 60_000);
 
-  it("finishes a database that was set up by hand part of the way", async () => {
+  // Every migration pasted into the SQL Editor by hand, without being recorded:
+  // setup.sql must recognise what's there and finish the rest. A new migration
+  // that can't safely run twice needs a check in the baseline of setup-sql.ts.
+  const files = readdirSync(MIGRATIONS).sort();
+  it.each(files.map((file, index) => [index + 1, file] as const))(
+    "finishes a database where the first %i migration(s), up to %s, were applied by hand",
+    async (count) => {
+      const partial = await freshDatabase();
+      for (const file of files.slice(0, count)) {
+        await partial.exec(readFileSync(path.join(MIGRATIONS, file), "utf8"));
+      }
+
+      await partial.exec(readFileSync(SETUP_SQL, "utf8"));
+      expect(await applied(partial)).toEqual(versions);
+      await as("postgres");
+      expect(await snapshot(partial)).toEqual(await snapshot(db));
+    },
+    60_000,
+  );
+
+  it("skips a migration that was applied by hand after setup.sql last ran", async () => {
+    // What happened in production: setup.sql ran once, then delete_my_data was
+    // pasted in on its own, so the history doesn't list it.
     const partial = await freshDatabase();
-    const [first] = readdirSync(MIGRATIONS).sort();
-    await partial.exec(readFileSync(path.join(MIGRATIONS, first!), "utf8"));
+    const earlier = files.filter((file) => file < "20261012");
+    for (const file of earlier) {
+      await partial.exec(readFileSync(path.join(MIGRATIONS, file), "utf8"));
+    }
+    await partial.exec(`
+      create schema supabase_migrations;
+      create table supabase_migrations.schema_migrations (
+        version text primary key, statements text[], name text
+      );
+      insert into supabase_migrations.schema_migrations (version)
+      values ${earlier.map((file) => `('${file.split("_")[0]}')`).join(", ")};
+    `);
+    await partial.exec(
+      readFileSync(path.join(MIGRATIONS, "20261012000000_delete_my_data.sql"), "utf8"),
+    );
 
     await partial.exec(readFileSync(SETUP_SQL, "utf8"));
     expect(await applied(partial)).toEqual(versions);

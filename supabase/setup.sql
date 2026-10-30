@@ -38,6 +38,20 @@ begin
       on conflict (version) do nothing;
     end if;
   end if;
+
+  -- Later migrations pasted into the SQL Editor on their own: recognise them by
+  -- what they create, so they never run twice. (Migrations made only of
+  -- revoke/grant are safe to run again and need no check here.)
+  if to_regprocedure('public.delete_my_data()') is not null then
+    insert into supabase_migrations.schema_migrations (version, name)
+    values ('20261012000000', 'delete_my_data')
+    on conflict (version) do nothing;
+  end if;
+  if to_regprocedure('public.username_is_offensive(text)') is not null then
+    insert into supabase_migrations.schema_migrations (version, name)
+    values ('20261031000000', 'clean_scout_names')
+    on conflict (version) do nothing;
+  end if;
 end
 $baseline$;
 
