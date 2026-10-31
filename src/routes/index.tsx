@@ -299,7 +299,14 @@ function Dashboard() {
             </span>
             <span>
               Scout reports are crowd-sourced and unverified. Not affiliated with UTM. Always follow
-              posted parking rules. <Link to="/privacy">Privacy</Link>
+              posted parking rules. <Link to="/privacy">Privacy</Link> · Built by Abood Awaida ·{" "}
+              <a
+                href="https://www.linkedin.com/in/abood-awaida/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                LinkedIn
+              </a>
             </span>
           </div>
         </footer>

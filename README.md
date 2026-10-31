@@ -226,6 +226,10 @@ Realtime) · Leaflet · Radix UI · Vitest · PGlite · Cloudflare Turnstile · 
 See [SECURITY.md](SECURITY.md) to report a vulnerability, and the in-app
 [privacy page](https://lotpulse-utm.vercel.app/privacy) for what's stored and for how long.
 
+## Author
+
+**Abood Awaida** · [GitHub](https://github.com/aboodgitawaida) · [LinkedIn](https://www.linkedin.com/in/abood-awaida/)
+
 ## License
 
 [MIT](LICENSE) © Abood Awaida
